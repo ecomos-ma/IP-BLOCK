@@ -1,6 +1,8 @@
 /* Browser-only visual guard. This is NOT server-side IP blocking. */
 (function () {
   'use strict';
+  if (window.__kxProtectionGuardStarted) return;
+  window.__kxProtectionGuardStarted=true;
   var script=document.currentScript;
   var root=document.documentElement;
   var id=script&&script.getAttribute('data-store-id');
@@ -16,6 +18,6 @@
   if(!id||!endpoint){allow();return;}
   fetch(endpoint+'?storeId='+encodeURIComponent(id),{mode:'cors',cache:'no-store',credentials:'omit'})
     .then(function(r){if(!r.ok)throw Error('guard request failed');return r.json()})
-    .then(function(data){if(data.decision==='block')block();else allow()})
-    .catch(allow);
+    .then(function(data){if(data.blocked===true||data.decision==='block')block();else allow()})
+    .catch(function(error){if(window.console&&console.warn)console.warn('IP protection check unavailable; allowing page',error&&error.message||'request failed');allow()});
 })();

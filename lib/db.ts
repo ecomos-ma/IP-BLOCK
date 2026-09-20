@@ -22,6 +22,6 @@ export async function account(request:Request) {
 export function json(data:unknown,status=200) {
  return Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 }
-export function cors(data:unknown,status=200) {
- return Response.json(data,{status,headers:{'Cache-Control':'no-store','Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET,OPTIONS','Access-Control-Allow-Headers':'Content-Type'}});
+export function cors(data:unknown,status=200,origin='*') {
+ return Response.json(data,{status,headers:{'Cache-Control':'no-store','Vary':'Origin','Access-Control-Allow-Origin':origin,'Access-Control-Allow-Methods':'GET,OPTIONS','Access-Control-Allow-Headers':'Content-Type'}});
 }
