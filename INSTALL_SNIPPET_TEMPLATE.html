@@ -1,0 +1,11 @@
+<!-- COPY THIS INTO THE VERY FIRST LINES OF YOUCAN ADDITIONAL HEADER CODE -->
+<!-- Replace YOUR_HOST and YOUR_STORE_UUID after deployment; dashboard generates exact code. -->
+<style>
+html.kx-protection-wait body { visibility:hidden!important; }
+html.kx-protection-denied body > :not(#kx-protection-curtain) { display:none!important; }
+</style>
+<script>
+document.documentElement.classList.add('kx-protection-wait');
+setTimeout(function(){document.documentElement.classList.remove('kx-protection-wait')},3500);
+</script>
+<script src="https://YOUR_HOST/guard.js" data-store-id="YOUR_STORE_UUID"></script>

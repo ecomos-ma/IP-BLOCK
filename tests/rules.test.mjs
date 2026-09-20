@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {validIP,validHost,blockedByRule,decision,expiryFromHours} from '../lib/rules.mjs';
+test('IP formats',()=>{assert.equal(validIP('196.118.93.179'),true);assert.equal(validIP('999.0.0.1'),false);assert.equal(validHost('https://example.com'),'example.com');assert.equal(validHost('example.com/evil'),null)});
+test('enabled 24h block expires',()=>{const start='2026-09-20T00:00:00Z';const rule={ip:'196.118.93.179',enabled:true,starts_at:start,expires_at:'2026-09-21T00:00:00Z'};assert.equal(decision([rule],rule.ip,new Date('2026-09-20T23:00:00Z')),'block');assert.equal(decision([rule],rule.ip,new Date('2026-09-21T00:00:00Z')),'allow');assert.equal(blockedByRule({...rule,enabled:false},rule.ip,new Date('2026-09-20T23:00:00Z')),false);assert.equal(decision([rule],'196.118.93.178',new Date('2026-09-20T23:00:00Z')),'allow')});
+test('duration',()=>{assert.equal(expiryFromHours(24,new Date('2026-09-20T00:00:00Z')),'2026-09-21T00:00:00.000Z');assert.equal(expiryFromHours(null),null);assert.throws(()=>expiryFromHours(-1))});
