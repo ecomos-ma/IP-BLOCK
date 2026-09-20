@@ -35,8 +35,17 @@ export default function BlocklistPage() {
 
   useEffect(() => {
     if (currentStore) {
-      setBlockMessage(currentStore.block_message || 'Access to this store is restricted from your IP address. Please contact support if you believe this is an error.');
-      setBlockImageUrl(currentStore.block_image_url || '');
+      let msg = currentStore.block_message || '';
+      let img = currentStore.block_image_url || '';
+      if (!msg && currentStore.description) {
+        try {
+          const meta = JSON.parse(currentStore.description);
+          if (meta.block_message) msg = meta.block_message;
+          if (meta.block_image_url) img = meta.block_image_url;
+        } catch {}
+      }
+      setBlockMessage(msg || 'Access to this store is restricted from your IP address. Please contact support if you believe this is an error.');
+      setBlockImageUrl(img || '');
     }
   }, [currentStore?.id]);
 

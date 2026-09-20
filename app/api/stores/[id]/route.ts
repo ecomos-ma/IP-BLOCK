@@ -26,14 +26,63 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return updated ? json({ store: updated }) : json({ error: 'Store not found' }, 404);
   }
 
-  const { data, error } = await db()
+  // Attempt 1: Direct update assuming columns exist
+  const { data: directData, error: directError } = await db()
     .from('stores')
     .update(change)
     .eq('id', id)
-    .select('id,hostname,name,description,status,license_expires_at,verified_at,verification_token,block_message,block_image_url')
+    .select('id,hostname,name,description,status,license_expires_at,verified_at,verification_token')
     .single();
 
-  return error ? json({ error: 'Could not update store' }, 500) : json({ store: data });
+  if (!directError && directData) {
+    return json({
+      store: {
+        ...directData,
+        block_message: (change.block_message as string) || (directData as any).block_message || null,
+        block_image_url: (change.block_image_url as string) || (directData as any).block_image_url || null,
+      }
+    });
+  }
+
+  // Attempt 2: Fallback if Postgres table lacks block_message / block_image_url columns
+  const cleanChange: Record<string, unknown> = {};
+  if ('name' in change) cleanChange.name = change.name;
+  if ('status' in change) cleanChange.status = change.status;
+
+  // Encode custom block settings into description JSON
+  const { data: current } = await db().from('stores').select('description').eq('id', id).maybeSingle();
+  let descMeta: Record<string, any> = {};
+  try {
+    descMeta = JSON.parse(current?.description || '{}');
+  } catch {
+    descMeta = { legacy: current?.description || '' };
+  }
+
+  if ('block_message' in change) descMeta.block_message = change.block_message;
+  if ('block_image_url' in change) descMeta.block_image_url = change.block_image_url;
+  if ('description' in change && typeof change.description === 'string') descMeta.text = change.description;
+
+  cleanChange.description = JSON.stringify(descMeta);
+
+  const { data: fallbackData, error: fallbackError } = await db()
+    .from('stores')
+    .update(cleanChange)
+    .eq('id', id)
+    .select('id,hostname,name,description,status,license_expires_at,verified_at,verification_token')
+    .single();
+
+  if (fallbackError) {
+    console.error('[YCM] Store update error:', fallbackError);
+    return json({ error: fallbackError.message || 'Could not update store' }, 500);
+  }
+
+  return json({
+    store: {
+      ...fallbackData,
+      block_message: descMeta.block_message || null,
+      block_image_url: descMeta.block_image_url || null,
+    }
+  });
 }
 
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {

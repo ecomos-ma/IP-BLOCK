@@ -15,16 +15,39 @@ export async function GET(request:Request){
  const origin=request.headers.get('origin');
  if(!origin)return allow();
  let host:string|null=null;try{host=validHost(new URL(origin).hostname)}catch{return allow()}
- const store=demoMode?demoStore(storeId):((await db().from('stores').select('hostname,status,license_expires_at,block_message,block_image_url').eq('id',storeId).maybeSingle()).data);
- const error=demoMode?null:undefined;
- if(error||!store||!host||host!==store.hostname||store.status!=='active'||(store.license_expires_at&&Date.parse(store.license_expires_at)<=Date.now()))return allow();
- // Production must use a proxy-controlled header. Demo accepts a local test header only.
- const ip=demoMode?normalizeIP((request.headers.get('x-demo-ip')||request.headers.get('x-forwarded-for')||'').split(',')[0]):trustedClientIP(request);
- if(!validIP(ip))return allow();
- const rules=demoMode?demoRules(storeId):((await db().from('ip_rules').select('ip,enabled,starts_at,expires_at').eq('store_id',storeId).eq('enabled',true).eq('ip',ip)).data||[]);
- const rulesError=demoMode?null:undefined;
- if(rulesError)return allow();
- const block=(rules||[]).some(rule=>blockedByRule(rule,ip));
- return cors({blocked:block,decision:block?'block':'allow',message:(store as any)?.block_message||null,image_url:(store as any)?.block_image_url||null,ip:ip},200,origin);
+  let rawStore = demoMode ? demoStore(storeId) : ((await db().from('stores').select('*').eq('id', storeId).maybeSingle()).data);
+  if (!rawStore && !demoMode) {
+    rawStore = ((await db().from('stores').select('hostname,status,license_expires_at,description').eq('id', storeId).maybeSingle()).data) as any;
+  }
+  const store = rawStore;
+  const error = demoMode ? null : undefined;
+  if (error || !store || !host || host !== store.hostname || store.status !== 'active' || (store.license_expires_at && Date.parse(store.license_expires_at) <= Date.now())) return allow();
+
+  const ip = demoMode ? normalizeIP((request.headers.get('x-demo-ip') || request.headers.get('x-forwarded-for') || '').split(',')[0]) : trustedClientIP(request);
+  if (!validIP(ip)) return allow();
+
+  const rules = demoMode ? demoRules(storeId) : ((await db().from('ip_rules').select('ip,enabled,starts_at,expires_at').eq('store_id', storeId).eq('enabled', true).eq('ip', ip)).data || []);
+  const rulesError = demoMode ? null : undefined;
+  if (rulesError) return allow();
+
+  const block = (rules || []).some(rule => blockedByRule(rule, ip));
+
+  let msg = (store as any)?.block_message || null;
+  let img = (store as any)?.block_image_url || null;
+  if (!msg && store?.description) {
+    try {
+      const meta = JSON.parse(store.description);
+      if (meta.block_message) msg = meta.block_message;
+      if (meta.block_image_url) img = meta.block_image_url;
+    } catch {}
+  }
+
+  return cors({
+    blocked: block,
+    decision: block ? 'block' : 'allow',
+    message: msg,
+    image_url: img,
+    ip: ip
+  }, 200, origin);
  }catch{return allow()}
 }
