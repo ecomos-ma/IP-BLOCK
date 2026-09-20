@@ -34,11 +34,13 @@ export async function GET(request:Request){
 
   let msg = (store as any)?.block_message || null;
   let img = (store as any)?.block_image_url || null;
-  if (!msg && store?.description) {
+  let mode = (store as any)?.block_mode || 'message';
+  if (store?.description) {
     try {
       const meta = JSON.parse(store.description);
-      if (meta.block_message) msg = meta.block_message;
-      if (meta.block_image_url) img = meta.block_image_url;
+      if (!msg && meta.block_message) msg = meta.block_message;
+      if (!img && meta.block_image_url) img = meta.block_image_url;
+      if (meta.block_mode) mode = meta.block_mode;
     } catch {}
   }
 
@@ -47,6 +49,7 @@ export async function GET(request:Request){
     decision: block ? 'block' : 'allow',
     message: msg,
     image_url: img,
+    block_mode: mode,
     ip: ip
   }, 200, origin);
  }catch{return allow()}

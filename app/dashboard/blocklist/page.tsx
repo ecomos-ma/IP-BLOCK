@@ -31,21 +31,26 @@ export default function BlocklistPage() {
     currentStore?.block_message || 'Access to this store is restricted from your IP address. Please contact support if you believe this is an error.'
   );
   const [blockImageUrl, setBlockImageUrl] = useState(currentStore?.block_image_url || '');
+  const [blockMode, setBlockMode] = useState<'message' | 'hack_fomo'>((currentStore?.block_mode as any) || 'message');
   const [savingScreen, setSavingScreen] = useState(false);
 
   useEffect(() => {
     if (currentStore) {
       let msg = currentStore.block_message || '';
       let img = currentStore.block_image_url || '';
-      if (!msg && currentStore.description) {
+      let mode: 'message' | 'hack_fomo' = 'message';
+      if (currentStore.description) {
         try {
           const meta = JSON.parse(currentStore.description);
-          if (meta.block_message) msg = meta.block_message;
-          if (meta.block_image_url) img = meta.block_image_url;
+          if (!msg && meta.block_message) msg = meta.block_message;
+          if (!img && meta.block_image_url) img = meta.block_image_url;
+          if (meta.block_mode === 'hack_fomo') mode = 'hack_fomo';
         } catch {}
       }
+      if ((currentStore.block_mode as any) === 'hack_fomo') mode = 'hack_fomo';
       setBlockMessage(msg || 'Access to this store is restricted from your IP address. Please contact support if you believe this is an error.');
       setBlockImageUrl(img || '');
+      setBlockMode(mode);
     }
   }, [currentStore?.id]);
 
@@ -58,6 +63,7 @@ export default function BlocklistPage() {
       const res = await apiCall<{ store: any }>(`/api/stores/${currentStore.id}`, 'PATCH', {
         block_message: blockMessage,
         block_image_url: blockImageUrl,
+        block_mode: blockMode,
       }, session);
       if (res.store) {
         setMsg({ text: 'Block screen customizations saved and applied to storefront!', type: 'success' });
@@ -472,6 +478,49 @@ export default function BlocklistPage() {
               </p>
             </div>
 
+            {/* Mode Selector */}
+            <div>
+              <label style={{ ...S.label, color: '#cbd5e1', marginBottom: 10, display: 'block' }}>Block Screen Mode *</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div
+                  onClick={() => setBlockMode('message')}
+                  style={{
+                    padding: '14px 16px',
+                    borderRadius: 12,
+                    border: `2px solid ${blockMode === 'message' ? '#38bdf8' : '#334155'}`,
+                    background: blockMode === 'message' ? '#0c1a2e' : '#1e293b',
+                    cursor: 'pointer',
+                    textAlign: 'center',
+                    transition: 'border 0.2s',
+                  }}
+                >
+                  <div style={{ fontSize: 28, marginBottom: 6 }}>🚫</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: blockMode === 'message' ? '#38bdf8' : '#f8fafc' }}>Custom Message</div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>Clean blocked notice with your text & logo</div>
+                </div>
+
+                <div
+                  onClick={() => setBlockMode('hack_fomo')}
+                  style={{
+                    padding: '14px 16px',
+                    borderRadius: 12,
+                    border: `2px solid ${blockMode === 'hack_fomo' ? '#ef4444' : '#334155'}`,
+                    background: blockMode === 'hack_fomo' ? '#1a0a0a' : '#1e293b',
+                    cursor: 'pointer',
+                    textAlign: 'center',
+                    transition: 'border 0.2s',
+                  }}
+                >
+                  <div style={{ fontSize: 28, marginBottom: 6 }}>💀</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: blockMode === 'hack_fomo' ? '#ef4444' : '#f8fafc' }}>Hack FOMO</div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>Fake hacking terminal prank screen 😈</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Show message/image fields only for message mode */}
+            {blockMode === 'message' && (<>
+
             <div>
               <label style={{ ...S.label, color: '#cbd5e1' }}>Custom Block Message *</label>
               <textarea
@@ -506,13 +555,28 @@ export default function BlocklistPage() {
               </span>
             </div>
 
+            {blockMode === 'message' && (
+              <div style={{ marginTop: 0, opacity: 0, height: 0, overflow: 'hidden' }} />
+            )}
+            </>)}
+
+            {/* Hack FOMO info notice */}
+            {blockMode === 'hack_fomo' && (
+              <div style={{ background: '#1a0a0a', border: '1px solid #991b1b', borderRadius: 10, padding: '14px 16px' }}>
+                <div style={{ color: '#ef4444', fontWeight: 700, fontSize: 14, marginBottom: 6 }}>💀 Hack FOMO Mode Active</div>
+                <div style={{ color: '#94a3b8', fontSize: 13, lineHeight: 1.5 }}>
+                  When a blocked IP visits your store, they will see a full-screen fake hacking terminal with glitch effects, fake data exfiltration progress bar, screen shake, and red trail cursor. No custom message or image needed — the effect is automated.
+                </div>
+              </div>
+            )}
+
             <div style={{ marginTop: 8 }}>
               <button
                 type="submit"
                 disabled={savingScreen}
-                style={{ ...S.btn, ...S.btnPrimary, width: '100%', padding: '12px 20px', fontSize: 15 }}
+                style={{ ...S.btn, ...(blockMode === 'hack_fomo' ? S.btnDanger : S.btnPrimary), width: '100%', padding: '12px 20px', fontSize: 15 }}
               >
-                {savingScreen ? 'Saving Changes...' : '💾 Save Block Screen Settings'}
+                {savingScreen ? 'Saving Changes...' : (blockMode === 'hack_fomo' ? '💀 Activate Hack FOMO Mode' : '💾 Save Block Screen Settings')}
               </button>
             </div>
           </form>
@@ -528,45 +592,84 @@ export default function BlocklistPage() {
               </span>
             </div>
 
-            <div
-              style={{
+            {blockMode === 'hack_fomo' ? (
+              /* Hack FOMO preview */
+              <div style={{
                 width: '100%',
-                background: '#0f172a',
-                border: '1px solid #334155',
-                borderRadius: 16,
-                padding: '32px 24px',
+                background: '#000',
+                border: '1px solid #14532d',
+                borderRadius: 10,
+                padding: '20px 18px',
                 boxSizing: 'border-box',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                textAlign: 'center',
-                gap: 16,
-                boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)',
-              }}
-            >
-              {blockImageUrl ? (
-                <img
-                  src={blockImageUrl}
-                  alt="Block screen preview"
-                  onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
-                  style={{ maxHeight: 120, maxWidth: '100%', borderRadius: 8, objectFit: 'contain' }}
-                />
-              ) : (
-                <div style={{ fontSize: 44 }}>🚫</div>
-              )}
-
-              <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#f8fafc', letterSpacing: -0.4 }}>
-                Access Restricted
-              </h3>
-
-              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: '#94a3b8', whiteSpace: 'pre-wrap' }}>
-                {blockMessage || 'Access to this store is restricted from your IP address.'}
-              </p>
-
-              <div style={{ fontSize: 11, color: '#64748b', background: '#0f172a', padding: '4px 12px', borderRadius: 20, fontFamily: 'monospace' }}>
-                Your IP: 196.118.93.179
+                fontFamily: 'monospace',
+                color: '#0f0',
+                fontSize: 11,
+                lineHeight: 1.6,
+                boxShadow: '0 0 24px rgba(0,200,0,0.15)',
+                minHeight: 280,
+              }}>
+                <div style={{ background: '#f00', color: '#fff', fontSize: 12, fontWeight: 700, padding: '6px 10px', marginBottom: 12, letterSpacing: 1.5, textAlign: 'center' }}>
+                  ⚠ SYSTEM BREACH DETECTED — CRITICAL ALERT ⚠
+                </div>
+                {[
+                  '> Initializing security scan...',
+                  '> Scanning IP: 196.118.93.179',
+                  '> Threat level: [CRITICAL]',
+                  '> Bypassing firewall .......... [DONE]',
+                  '> Extracting browser cookies .. [DONE]',
+                  '> Reading saved passwords ...... [DONE]',
+                  '> Uploading data to server .....',
+                ].map((line, i) => (
+                  <div key={i} style={{ color: line.includes('DONE') ? '#0f0' : line.includes('CRITICAL') ? '#f00' : '#0f0' }}>{line}</div>
+                ))}
+                <div style={{ marginTop: 12, background: '#0a0', height: 12, width: '67%', borderRight: '2px solid #0f0' }} />
+                <div style={{ color: '#f00', marginTop: 8, fontSize: 11 }}>{'> EXFILTRATING DATA... 67%'}</div>
+                <div style={{ marginTop: 12, borderTop: '1px solid #0f0', paddingTop: 10, textAlign: 'center', color: '#f00', fontSize: 11, fontWeight: 700 }}>
+                  💀 DO NOT CLOSE THIS WINDOW
+                </div>
               </div>
-            </div>
+            ) : (
+              /* Normal message preview */
+              <div
+                style={{
+                  width: '100%',
+                  background: '#0f172a',
+                  border: '1px solid #334155',
+                  borderRadius: 16,
+                  padding: '32px 24px',
+                  boxSizing: 'border-box',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  textAlign: 'center',
+                  gap: 16,
+                  boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)',
+                }}
+              >
+                {blockImageUrl ? (
+                  <img
+                    src={blockImageUrl}
+                    alt="Block screen preview"
+                    onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                    style={{ maxHeight: 120, maxWidth: '100%', borderRadius: 8, objectFit: 'contain' }}
+                  />
+                ) : (
+                  <div style={{ fontSize: 44 }}>🚫</div>
+                )}
+
+                <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#f8fafc', letterSpacing: -0.4 }}>
+                  Access Restricted
+                </h3>
+
+                <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: '#94a3b8', whiteSpace: 'pre-wrap' }}>
+                  {blockMessage || 'Access to this store is restricted from your IP address.'}
+                </p>
+
+                <div style={{ fontSize: 11, color: '#64748b', background: '#0f172a', padding: '4px 12px', borderRadius: 20, fontFamily: 'monospace' }}>
+                  Your IP: 196.118.93.179
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

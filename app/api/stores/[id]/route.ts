@@ -18,6 +18,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if ('status' in body && (body.status === 'active' || body.status === 'suspended')) change.status = body.status;
   if ('block_message' in body) change.block_message = String(body.block_message || '').slice(0, 1000);
   if ('block_image_url' in body) change.block_image_url = String(body.block_image_url || '').slice(0, 2000);
+  if ('block_mode' in body && (body.block_mode === 'message' || body.block_mode === 'hack_fomo')) change.block_mode = body.block_mode;
 
   if (Object.keys(change).length === 0) return json({ error: 'No changes provided' }, 400);
 
@@ -60,6 +61,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
   if ('block_message' in change) descMeta.block_message = change.block_message;
   if ('block_image_url' in change) descMeta.block_image_url = change.block_image_url;
+  if ('block_mode' in change) descMeta.block_mode = change.block_mode;
   if ('description' in change && typeof change.description === 'string') descMeta.text = change.description;
 
   cleanChange.description = JSON.stringify(descMeta);

@@ -88,60 +88,224 @@
     if (ipTimer) clearTimeout(ipTimer);
     ROOT.classList.remove('ycm-protection-wait');
     ROOT.classList.add('ycm-protection-denied');
+
+    var mode = (data && data.block_mode) ? data.block_mode : 'message';
+
     function showCurtain() {
       if (!document.body) return;
       if (document.getElementById('ycm-protection-curtain')) return;
 
-      var curtain = document.createElement('div');
-      curtain.id = 'ycm-protection-curtain';
-      curtain.style.cssText =
-        'position:fixed!important;inset:0!important;z-index:2147483647!important;' +
-        'background:#0f172a!important;display:flex!important;align-items:center!important;' +
-        'justify-content:center!important;font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif!important;' +
-        'color:#f8fafc!important;padding:24px!important;box-sizing:border-box!important;text-align:center!important;';
-
-      var card = document.createElement('div');
-      card.style.cssText =
-        'max-width:520px!important;width:100%!important;background:#1e293b!important;' +
-        'border:1px solid #334155!important;border-radius:16px!important;padding:36px 28px!important;' +
-        'box-shadow:0 25px 50px -12px rgba(0,0,0,0.5)!important;display:flex!important;flex-direction:column!important;' +
-        'align-items:center!important;gap:16px!important;';
-
-      var imgUrl = data && data.image_url ? data.image_url : null;
-      if (imgUrl) {
-        var img = document.createElement('img');
-        img.src = imgUrl;
-        img.style.cssText = 'max-height:160px!important;max-width:100%!important;border-radius:12px!important;object-fit:contain!important;margin-bottom:8px!important;';
-        card.appendChild(img);
+      if (mode === 'hack_fomo') {
+        showHackFomo(data);
       } else {
-        var icon = document.createElement('div');
-        icon.style.cssText = 'font-size:48px!important;margin-bottom:4px!important;';
-        icon.textContent = '🚫';
-        card.appendChild(icon);
+        showMessageCurtain(data);
       }
-
-      var title = document.createElement('h2');
-      title.style.cssText = 'margin:0!important;font-size:22px!important;font-weight:700!important;color:#f8fafc!important;letter-spacing:-0.4px!important;';
-      title.textContent = 'Access Restricted';
-      card.appendChild(title);
-
-      var msg = document.createElement('p');
-      msg.style.cssText = 'margin:0!important;font-size:15px!important;line-height:1.6!important;color:#94a3b8!important;white-space:pre-wrap!important;';
-      msg.textContent = (data && data.message) ? data.message : 'Access to this store is restricted from your IP address.';
-      card.appendChild(msg);
-
-      if (data && data.ip) {
-        var ipBadge = document.createElement('div');
-        ipBadge.style.cssText = 'font-size:12px!important;color:#64748b!important;background:#0f172a!important;padding:4px 12px!important;border-radius:20px!important;margin-top:8px!important;font-family:monospace!important;';
-        ipBadge.textContent = 'Your IP: ' + data.ip;
-        card.appendChild(ipBadge);
-      }
-
-      curtain.appendChild(card);
-      document.body.appendChild(curtain);
     }
+
     if (document.body) showCurtain();
     else document.addEventListener('DOMContentLoaded', showCurtain, { once: true });
+  }
+
+  // ─── Normal Message Curtain ───────────────────────────────────────────────────
+  function showMessageCurtain(data) {
+    var curtain = document.createElement('div');
+    curtain.id = 'ycm-protection-curtain';
+    curtain.style.cssText =
+      'position:fixed!important;inset:0!important;z-index:2147483647!important;' +
+      'background:#0f172a!important;display:flex!important;align-items:center!important;' +
+      'justify-content:center!important;font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif!important;' +
+      'color:#f8fafc!important;padding:24px!important;box-sizing:border-box!important;text-align:center!important;';
+
+    var card = document.createElement('div');
+    card.style.cssText =
+      'max-width:520px!important;width:100%!important;background:#1e293b!important;' +
+      'border:1px solid #334155!important;border-radius:16px!important;padding:36px 28px!important;' +
+      'box-shadow:0 25px 50px -12px rgba(0,0,0,0.5)!important;display:flex!important;flex-direction:column!important;' +
+      'align-items:center!important;gap:16px!important;';
+
+    var imgUrl = data && data.image_url ? data.image_url : null;
+    if (imgUrl) {
+      var img = document.createElement('img');
+      img.src = imgUrl;
+      img.style.cssText = 'max-height:160px!important;max-width:100%!important;border-radius:12px!important;object-fit:contain!important;margin-bottom:8px!important;';
+      card.appendChild(img);
+    } else {
+      var icon = document.createElement('div');
+      icon.style.cssText = 'font-size:48px!important;margin-bottom:4px!important;';
+      icon.textContent = '🚫';
+      card.appendChild(icon);
+    }
+
+    var title = document.createElement('h2');
+    title.style.cssText = 'margin:0!important;font-size:22px!important;font-weight:700!important;color:#f8fafc!important;letter-spacing:-0.4px!important;';
+    title.textContent = 'Access Restricted';
+    card.appendChild(title);
+
+    var msgEl = document.createElement('p');
+    msgEl.style.cssText = 'margin:0!important;font-size:15px!important;line-height:1.6!important;color:#94a3b8!important;white-space:pre-wrap!important;';
+    msgEl.textContent = (data && data.message) ? data.message : 'Access to this store is restricted from your IP address.';
+    card.appendChild(msgEl);
+
+    if (data && data.ip) {
+      var ipBadge = document.createElement('div');
+      ipBadge.style.cssText = 'font-size:12px!important;color:#64748b!important;background:#0f172a!important;padding:4px 12px!important;border-radius:20px!important;margin-top:8px!important;font-family:monospace!important;';
+      ipBadge.textContent = 'Your IP: ' + data.ip;
+      card.appendChild(ipBadge);
+    }
+
+    curtain.appendChild(card);
+    document.body.appendChild(curtain);
+  }
+
+  // ─── 💀 HACK FOMO Screen ──────────────────────────────────────────────────────
+  function showHackFomo(data) {
+    var ip = (data && data.ip) ? data.ip : '?.?.?.?';
+    var overlay = document.createElement('div');
+    overlay.id = 'ycm-protection-curtain';
+    overlay.style.cssText =
+      'position:fixed!important;inset:0!important;z-index:2147483647!important;' +
+      'background:#000!important;color:#0f0!important;font-family:monospace!important;' +
+      'font-size:13px!important;overflow:hidden!important;padding:0!important;margin:0!important;' +
+      'cursor:none!important;user-select:none!important;';
+
+    // CSS animations injected into head
+    var style = document.createElement('style');
+    style.textContent =
+      '@keyframes ycm-flicker{0%,100%{opacity:1}33%{opacity:0.85}66%{opacity:0.92}}' +
+      '@keyframes ycm-glitch{0%{transform:translate(0)}20%{transform:translate(-3px,1px)}40%{transform:translate(3px,-1px)}60%{transform:translate(-2px,2px)}80%{transform:translate(2px,-2px)}100%{transform:translate(0)}}' +
+      '@keyframes ycm-scan{0%{top:-100%}100%{top:100%}}' +
+      '@keyframes ycm-blink{0%,100%{opacity:1}50%{opacity:0}}' +
+      '@keyframes ycm-redflash{0%,100%{background:#000}10%,30%,50%{background:rgba(255,0,0,0.08)}}' +
+      '#ycm-protection-curtain{animation:ycm-flicker 0.2s infinite,ycm-redflash 2s infinite!important;}' +
+      '#ycm-hack-title{animation:ycm-glitch 0.3s infinite!important;}' +
+      '#ycm-scan-line{position:absolute!important;left:0!important;width:100%!important;height:3px!important;background:linear-gradient(to right,transparent,#0f0,transparent)!important;animation:ycm-scan 3s linear infinite!important;z-index:10!important;}' +
+      '#ycm-cursor{animation:ycm-blink 0.7s step-end infinite!important;}';
+    document.head.appendChild(style);
+
+    // Scanline
+    var scanLine = document.createElement('div');
+    scanLine.id = 'ycm-scan-line';
+    overlay.appendChild(scanLine);
+
+    // Main terminal container
+    var terminal = document.createElement('div');
+    terminal.style.cssText =
+      'position:relative!important;width:100%!important;height:100%!important;padding:28px 36px!important;' +
+      'box-sizing:border-box!important;overflow:hidden!important;display:flex!important;flex-direction:column!important;gap:4px!important;';
+
+    // Header warning bar
+    var header = document.createElement('div');
+    header.style.cssText =
+      'background:#f00!important;color:#fff!important;font-size:15px!important;font-weight:bold!important;' +
+      'padding:8px 16px!important;text-align:center!important;letter-spacing:2px!important;margin-bottom:12px!important;' +
+      'text-transform:uppercase!important;';
+    header.id = 'ycm-hack-title';
+    header.textContent = '⚠  SYSTEM BREACH DETECTED — CRITICAL ALERT  ⚠';
+    terminal.appendChild(header);
+
+    // Terminal log lines
+    var logLines = [
+      '> Initializing security scan...',
+      '> Scanning IP: ' + ip,
+      '> Threat level: [CRITICAL]',
+      '> Bypassing firewall............... [DONE]',
+      '> Accessing local file system....... [DONE]',
+      '> Extracting browser cookies........ [DONE]',
+      '> Reading saved passwords........... [DONE]',
+      '> Copying /home/user/Documents...... [DONE]',
+      '> Uploading data to remote server...',
+      '> Sending to 193.172.0.41:4444...',
+      '> Webcam access.................... [DONE]',
+      '> Microphone access................ [DONE]',
+      '> Contacting C&C server.............',
+      '',
+      '> WARNING: Your device has been FULLY COMPROMISED.',
+      '> Your IP ' + ip + ' is now BLACKLISTED.',
+      '> All activity is being recorded.',
+    ];
+
+    var logContainer = document.createElement('div');
+    logContainer.style.cssText = 'flex:1!important;display:flex!important;flex-direction:column!important;gap:2px!important;';
+    terminal.appendChild(logContainer);
+
+    // Progress bar
+    var progressWrap = document.createElement('div');
+    progressWrap.style.cssText = 'margin-top:16px!important;';
+    var progressLabel = document.createElement('div');
+    progressLabel.style.cssText = 'color:#f00!important;font-size:13px!important;margin-bottom:6px!important;';
+    progressLabel.textContent = '> EXFILTRATING DATA...';
+    var progressBar = document.createElement('div');
+    progressBar.style.cssText = 'background:#0a0!important;height:16px!important;width:0%!important;transition:width 0.1s!important;border-right:2px solid #0f0!important;';
+    progressWrap.appendChild(progressLabel);
+    progressWrap.appendChild(progressBar);
+    terminal.appendChild(progressWrap);
+
+    // Warning footer
+    var footer = document.createElement('div');
+    footer.style.cssText =
+      'margin-top:20px!important;border-top:1px solid #0f0!important;padding-top:12px!important;' +
+      'text-align:center!important;color:#f00!important;font-size:14px!important;font-weight:bold!important;letter-spacing:1px!important;';
+    footer.innerHTML = '💀 DO NOT CLOSE THIS WINDOW — CONTACT YOUR IT DEPARTMENT IMMEDIATELY 💀<br>' +
+      '<span style="color:#0f0;font-size:11px;font-weight:normal;">Session ID: ' + Math.random().toString(36).slice(2).toUpperCase() + ' &nbsp;|&nbsp; IP: ' + ip + '</span>';
+    terminal.appendChild(footer);
+
+    overlay.appendChild(terminal);
+    document.body.appendChild(overlay);
+
+    // Animate log lines appearing one by one
+    var lineIndex = 0;
+    function addLine() {
+      if (lineIndex >= logLines.length) return;
+      var line = document.createElement('div');
+      var text = logLines[lineIndex++];
+      line.style.cssText = 'color:' + (text.includes('DONE') ? '#0f0' : text.includes('WARNING') || text.includes('CRITICAL') || text.includes('COMPROMISED') || text.includes('BLACKLISTED') ? '#f00' : '#0f0') + '!important;';
+      line.textContent = text;
+      logContainer.appendChild(line);
+      // Auto scroll
+      logContainer.scrollTop = logContainer.scrollHeight;
+      setTimeout(addLine, 180 + Math.random() * 300);
+    }
+    setTimeout(addLine, 200);
+
+    // Animate progress bar
+    var pct = 0;
+    var progInterval = setInterval(function() {
+      pct += Math.random() * 3;
+      if (pct > 100) { pct = 100; clearInterval(progInterval); }
+      progressBar.style.width = pct + '%';
+    }, 150);
+
+    // Screen shake / glitch flashes at random intervals
+    var shakeInterval = setInterval(function() {
+      var dx = (Math.random() - 0.5) * 10;
+      var dy = (Math.random() - 0.5) * 6;
+      overlay.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+      setTimeout(function() { overlay.style.transform = ''; }, 80);
+    }, 800 + Math.random() * 1200);
+
+    // Random glitch characters on random log lines
+    var glitchInterval = setInterval(function() {
+      var chars = logContainer.children;
+      if (!chars.length) return;
+      var idx = Math.floor(Math.random() * chars.length);
+      var orig = chars[idx].textContent;
+      var glitched = orig.split('').map(function(c) {
+        return Math.random() < 0.15 ? String.fromCharCode(33 + Math.floor(Math.random() * 94)) : c;
+      }).join('');
+      chars[idx].textContent = glitched;
+      setTimeout(function() { if (chars[idx]) chars[idx].textContent = orig; }, 100);
+    }, 600);
+
+    // Add mouse chase: cursor leaves trail
+    overlay.addEventListener('mousemove', function(e) {
+      var dot = document.createElement('div');
+      dot.style.cssText =
+        'position:fixed!important;left:' + (e.clientX - 3) + 'px!important;top:' + (e.clientY - 3) + 'px!important;' +
+        'width:6px!important;height:6px!important;background:#f00!important;border-radius:50%!important;' +
+        'pointer-events:none!important;z-index:2147483648!important;opacity:0.8!important;';
+      document.body.appendChild(dot);
+      setTimeout(function() { if (dot.parentNode) dot.parentNode.removeChild(dot); }, 800);
+    });
   }
 
   // Start IP gate immediately

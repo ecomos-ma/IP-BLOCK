@@ -14,6 +14,7 @@ export interface Store {
   verified_at: string | null;
   block_message?: string | null;
   block_image_url?: string | null;
+  block_mode?: 'message' | 'hack_fomo' | null;
   created_at: string;
   updated_at?: string;
 }
