@@ -1,73 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AppProvider, useApp } from '../../lib/app-context';
-import { S } from '../../lib/ui';
-import { apiCall } from '../../lib/api';
 
 function Sidebar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { session, stores, selectedStoreId, setSelectedStoreId, currentStore, isDemo, supabaseClient, setSession, refreshStores } = useApp();
-  const [email, setEmail] = useState('');
-  const [authMsg, setAuthMsg] = useState('');
-  const [sending, setSending] = useState(false);
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSending(true);
-    setAuthMsg('');
-    try {
-      const res = await apiCall<{ session: { access_token: string; refresh_token: string }; message?: string }>('/api/auth/login', 'POST', { email });
-      if (res.session?.access_token) {
-        if (supabaseClient && res.session.refresh_token) {
-          await supabaseClient.auth.setSession({
-            access_token: res.session.access_token,
-            refresh_token: res.session.refresh_token,
-          });
-        }
-        setSession(res.session.access_token);
-        await refreshStores();
-      } else {
-        setAuthMsg('Login succeeded but session token missing.');
-      }
-    } catch (err: any) {
-      setAuthMsg(err?.message || 'Sign in failed');
-    } finally {
-      setSending(false);
-    }
-  };
-
-  if (!session && !isDemo) {
-    return (
-      <div style={{ maxWidth: 420, margin: '12vh auto', ...S.card }}>
-        <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: 20 }}>Instant Sign In — YouCan Code Manager</h2>
-        <p style={{ color: '#6b7280', fontSize: 14, marginBottom: 20 }}>
-          Enter your owner email to sign in instantly without email confirmation.
-        </p>
-        {authMsg && (
-          <div style={S.error}>{authMsg}</div>
-        )}
-        <form onSubmit={handleLogin} style={{ display: 'grid', gap: 14 }}>
-          <div>
-            <label style={S.label}>Owner Email</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="owner@example.com"
-              style={S.input}
-            />
-          </div>
-          <button style={{ ...S.btn, ...S.btnPrimary, width: '100%', justifyContent: 'center' }} disabled={sending}>
-            {sending ? 'Signing in...' : '⚡ Sign In Instantly'}
-          </button>
-        </form>
-      </div>
-    );
-  }
+  const { stores, selectedStoreId, setSelectedStoreId, currentStore, isDemo } = useApp();
 
   const storeId = selectedStoreId || (stores[0]?.id ?? '');
 
@@ -117,7 +57,7 @@ function Sidebar({ children }: { children: React.ReactNode }) {
               YouCan Code Manager
             </span>
             <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: isDemo ? '#f59e0b' : '#10b981', color: '#000' }}>
-              {isDemo ? 'DEMO' : 'PROD'}
+              {isDemo ? 'DEMO' : 'ACTIVE'}
             </span>
           </div>
           <p style={{ margin: '4px 0 0', fontSize: 12, color: '#94a3b8' }}>Remote Custom Code SaaS</p>
@@ -194,14 +134,6 @@ function Sidebar({ children }: { children: React.ReactNode }) {
         {/* Footer info */}
         <div style={{ padding: 14, borderTop: '1px solid #1e293b', fontSize: 12, color: '#64748b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>{currentStore ? currentStore.hostname : 'No active store'}</span>
-          {!isDemo && supabaseClient && (
-            <button
-              onClick={() => { supabaseClient.auth.signOut(); setSession(null); }}
-              style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12, padding: 0 }}
-            >
-              Sign out
-            </button>
-          )}
         </div>
       </aside>
 

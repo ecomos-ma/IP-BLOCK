@@ -30,38 +30,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return url && key ? createClient(url, key) : null;
   }, []);
 
-  const [session, setSession] = useState<string | null>(isDemo ? 'demo' : null);
+  const [session, setSession] = useState<string | null>('owner-access');
   const [stores, setStores] = useState<Store[]>([]);
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
-    if (isDemo) {
-      setSession('demo');
-      setLoading(false);
-      return;
-    }
-
-    if (!supabaseClient) {
-      setLoading(false);
-      return;
-    }
+    if (!supabaseClient) return;
 
     supabaseClient.auth.getSession().then(({ data }) => {
-      setSession(data.session?.access_token || null);
-      setLoading(false);
+      if (data.session?.access_token) {
+        setSession(data.session.access_token);
+      }
     });
 
     const { data: listener } = supabaseClient.auth.onAuthStateChange((_event, current) => {
-      setSession(current?.access_token || null);
-      setLoading(false);
+      if (current?.access_token) {
+        setSession(current.access_token);
+      }
     });
 
     return () => listener.subscription.unsubscribe();
-  }, [supabaseClient, isDemo]);
+  }, [supabaseClient]);
 
   const refreshStores = async () => {
-    if (!session && !isDemo) return;
     try {
       const data = await apiCall<{ stores: Store[] }>('/api/stores', 'GET', undefined, session);
       setStores(data.stores);
@@ -74,11 +66,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    if (session) {
-      refreshStores();
-    } else {
-      setStores([]);
-    }
+    refreshStores();
   }, [session]);
 
   const currentStore = useMemo(() => {

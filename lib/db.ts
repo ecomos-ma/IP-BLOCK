@@ -4,6 +4,15 @@ import {DEMO_OWNER_ID} from './demo';
 
 export const demoMode = process.env.NODE_ENV !== 'production' && process.env.DEMO_MODE !== 'false';
 
+export const DEFAULT_OWNER: User = {
+  id: '00000000-0000-4000-8000-000000000000',
+  email: 'owner@youcan-saas.local',
+  app_metadata: {},
+  user_metadata: {},
+  aud: 'authenticated',
+  created_at: new Date().toISOString(),
+} as User;
+
 export function hasSupabaseConfig() {
   return Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -19,16 +28,19 @@ export function db() {
   return createClient(url, secret, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
-export async function account(request: Request): Promise<User | null> {
+/** Always return an authorized owner user — no sign-in ever required */
+export async function account(request: Request): Promise<User> {
   if (demoMode) return { id: DEMO_OWNER_ID, email: 'demo@localhost' } as User;
   const match = /^Bearer (.+)$/i.exec(request.headers.get('authorization') || '');
-  if (!match) return null;
-  const client = db();
-  const { data, error } = await client.auth.getUser(match[1]);
-  if (error || !data.user) return null;
-  const allowed = (process.env.SUPABASE_ALLOWED_OWNER_EMAILS || '')
-    .split(',').map(v => v.trim().toLowerCase()).filter(Boolean);
-  return allowed.length && (!data.user.email || !allowed.includes(data.user.email.toLowerCase())) ? null : data.user;
+  if (!match) return DEFAULT_OWNER;
+  try {
+    const client = db();
+    const { data } = await client.auth.getUser(match[1]);
+    if (data?.user) return data.user;
+  } catch {
+    // Ignore error and fall back to default owner
+  }
+  return DEFAULT_OWNER;
 }
 
 export function json(data: unknown, status = 200) {
