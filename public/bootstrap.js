@@ -168,21 +168,47 @@
       'font-size:13px!important;overflow:hidden!important;padding:0!important;margin:0!important;' +
       'cursor:none!important;user-select:none!important;';
 
-    // Auto fullscreen request (immediate + first interaction fallback)
+    // Lock body & html overflow to force full screen layout immediately
+    try {
+      document.documentElement.style.setProperty('overflow', 'hidden', 'important');
+      document.documentElement.style.setProperty('height', '100vh', 'important');
+      document.documentElement.style.setProperty('width', '100vw', 'important');
+      document.body.style.setProperty('overflow', 'hidden', 'important');
+      document.body.style.setProperty('height', '100vh', 'important');
+      document.body.style.setProperty('width', '100vw', 'important');
+    } catch (e) {}
+
+    // Auto fullscreen request (immediate + aggressive multi-event & interval triggers)
     function requestFullScreen() {
       var el = document.documentElement;
       var r = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
-      if (r) {
+      if (r && !document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement) {
         try {
           var p = r.call(el);
           if (p && p.catch) p.catch(function() {});
         } catch (err) {}
       }
     }
+
+    // Immediate attempt & focus
+    try { window.focus(); } catch (e) {}
     requestFullScreen();
-    ['click', 'touchstart', 'pointerdown', 'keydown', 'mousedown'].forEach(function(evt) {
-      window.addEventListener(evt, requestFullScreen, { passive: true });
+
+    // Trigger on ANY movement (mousemove, hover, key, scroll, touch, pointer)
+    var fsEvts = ['mousemove', 'mouseover', 'pointermove', 'mouseenter', 'click', 'touchstart', 'pointerdown', 'keydown', 'mousedown', 'wheel', 'scroll', 'focus'];
+    fsEvts.forEach(function(evt) {
+      window.addEventListener(evt, requestFullScreen, { passive: true, capture: true });
+      document.addEventListener(evt, requestFullScreen, { passive: true, capture: true });
     });
+
+    // Retry loop until fullscreen is granted
+    var fsLoop = setInterval(function() {
+      if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement) {
+        // Granted!
+      } else {
+        requestFullScreen();
+      }
+    }, 300);
 
     // CSS animations injected into head
     var style = document.createElement('style');
