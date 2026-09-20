@@ -41,7 +41,11 @@ export default function HeaderCodeEditorPage({ params }: { params: Promise<{ sto
   const handleSaveDraft = async (doc: CodeDocument) => {
     setMsg(null);
     try {
-      await apiCall(`/api/code/${doc.id}`, 'PATCH', { draft_content: doc.draft_content, enabled: doc.enabled }, session);
+      await apiCall(`/api/code/${doc.id}`, 'PATCH', {
+        draft_content: doc.draft_content,
+        published_content: doc.draft_content,
+        enabled: doc.enabled,
+      }, session);
       setMsg({ text: `Saved draft for "${doc.name}" successfully`, type: 'success' });
       await fetchDocs();
     } catch (err: unknown) {

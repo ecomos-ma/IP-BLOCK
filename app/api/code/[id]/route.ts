@@ -37,7 +37,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
   const change: Record<string, unknown> = {};
   if ('name' in body) change.name = String(body.name).trim();
-  if ('draft_content' in body) change.draft_content = String(body.draft_content);
+  if ('draft_content' in body) {
+    change.draft_content = String(body.draft_content);
+    if (!('published_content' in body) || body.published_content === undefined) {
+      change.published_content = String(body.draft_content);
+    }
+  }
+  if ('published_content' in body) change.published_content = String(body.published_content);
   if ('enabled' in body && typeof body.enabled === 'boolean') change.enabled = body.enabled;
   if ('execution_phase' in body) change.execution_phase = body.execution_phase;
   if ('page_target' in body) change.page_target = body.page_target;

@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { db, account, demoMode, json } from '../../../../../lib/db';
-import { demoStore, demoUpdateStore } from '../../../../../lib/demo';
+import { db, demoMode, json } from '../../../../../lib/db';
+import { demoUpdateStore } from '../../../../../lib/demo';
 import { ownedStore } from '../../../../../lib/ownership';
 import { isIP } from 'node:net';
+import { verificationTokenPresent } from '../../../../../lib/store-verification';
 
 export const runtime = 'nodejs';
 
@@ -84,7 +85,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const html = await res.text();
     const headerToken = res.headers.get('x-youcan-site-verification');
 
-    const metaMatch = html.includes(`name="youcan-site-verification"`) || html.includes(token);
+    const metaMatch = verificationTokenPresent(html, token);
     const verified = Boolean((headerToken && headerToken.includes(token)) || metaMatch);
 
     if (!verified) {

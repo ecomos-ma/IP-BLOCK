@@ -33,6 +33,7 @@ export async function POST(request: Request) {
   if (access.error) return access.error;
 
   const user = await account(request);
+  if (!user) return json({ error: 'Sign in required' }, 401);
 
   let docs: CodeDocument[];
   if (demoMode) {

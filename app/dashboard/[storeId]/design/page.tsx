@@ -32,7 +32,11 @@ export default function DesignAssetsPage({ params }: { params: Promise<{ storeId
 
   const handleSave = async (doc: CodeDocument) => {
     try {
-      await apiCall(`/api/code/${doc.id}`, 'PATCH', { draft_content: doc.draft_content, enabled: doc.enabled }, session);
+      await apiCall(`/api/code/${doc.id}`, 'PATCH', {
+        draft_content: doc.draft_content,
+        published_content: doc.draft_content,
+        enabled: doc.enabled,
+      }, session);
       setMsg({ text: `Saved CSS for "${doc.name}"`, type: 'success' });
       await fetchDocs();
     } catch (err: unknown) {

@@ -28,19 +28,18 @@ export function db() {
   return createClient(url, secret, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
-/** Always return an authorized owner user — no sign-in ever required */
-export async function account(request: Request): Promise<User> {
+/** Require a valid bearer token in production. Demo mode can still auto-authenticate. */
+export async function account(request: Request): Promise<User | null> {
   if (demoMode) return { id: DEMO_OWNER_ID, email: 'demo@localhost' } as User;
   const match = /^Bearer (.+)$/i.exec(request.headers.get('authorization') || '');
-  if (!match) return DEFAULT_OWNER;
+  if (!match) return null;
   try {
     const client = db();
     const { data } = await client.auth.getUser(match[1]);
-    if (data?.user) return data.user;
+    return data?.user ?? null;
   } catch {
-    // Ignore error and fall back to default owner
+    return null;
   }
-  return DEFAULT_OWNER;
 }
 
 export function json(data: unknown, status = 200) {

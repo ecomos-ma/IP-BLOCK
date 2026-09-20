@@ -76,7 +76,7 @@ export async function POST(request: Request) {
       name,
       doc_type,
       draft_content,
-      published_content: '',
+      published_content: draft_content,
       enabled,
       execution_phase,
       page_target,

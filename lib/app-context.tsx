@@ -30,7 +30,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return url && key ? createClient(url, key) : null;
   }, []);
 
-  const [session, setSession] = useState<string | null>('owner-access');
+  const [session, setSession] = useState<string | null>(isDemo ? 'owner-access' : null);
   const [stores, setStores] = useState<Store[]>([]);
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);

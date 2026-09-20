@@ -8,6 +8,9 @@ export const runtime = 'nodejs';
 export async function GET(request: Request) {
   if (demoMode) return json({ stores: demoStores() });
 
+  const user = await account(request);
+  if (!user) return json({ error: 'Sign in required' }, 401);
+
   const { data, error } = await db()
     .from('stores')
     .select('id,hostname,name,description,status,license_expires_at,verified_at,verification_token,created_at')
@@ -35,8 +38,10 @@ export async function POST(request: Request) {
     }
   }
 
-  // Get or provision a valid user ID in auth.users to satisfy foreign key constraint
   const user = await account(request);
+  if (!user) return json({ error: 'Sign in required' }, 401);
+
+  // Get or provision a valid user ID in auth.users to satisfy foreign key constraint
   let ownerId = user.id;
 
   try {

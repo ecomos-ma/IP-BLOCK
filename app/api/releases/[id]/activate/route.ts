@@ -7,6 +7,7 @@ export const runtime = 'nodejs';
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
   const user = await account(request);
+  if (!user) return json({ error: 'Sign in required' }, 401);
 
   if (demoMode) {
     const activated = demoActivateRelease(id);

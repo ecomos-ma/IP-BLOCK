@@ -43,6 +43,7 @@ export default function CustomModulesPage({ params }: { params: Promise<{ storeI
     try {
       await apiCall(`/api/code/${doc.id}`, 'PATCH', {
         draft_content: doc.draft_content,
+        published_content: doc.draft_content,
         enabled: doc.enabled,
         execution_phase: doc.execution_phase,
         page_target: doc.page_target,
