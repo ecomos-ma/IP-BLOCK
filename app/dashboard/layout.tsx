@@ -18,9 +18,10 @@ function Sidebar({ children }: { children: React.ReactNode }) {
     if (!supabaseClient) return;
     setSending(true);
     setAuthMsg('');
+    const redirectOrigin = process.env.NEXT_PUBLIC_SITE_URL?.trim() || window.location.origin;
     const { error } = await supabaseClient.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.origin + '/dashboard' },
+      options: { emailRedirectTo: redirectOrigin.replace(/\/$/, '') + '/dashboard', shouldCreateUser: false },
     });
     setSending(false);
     if (error) {
