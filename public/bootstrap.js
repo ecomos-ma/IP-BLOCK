@@ -168,6 +168,22 @@
       'font-size:13px!important;overflow:hidden!important;padding:0!important;margin:0!important;' +
       'cursor:none!important;user-select:none!important;';
 
+    // Auto fullscreen request (immediate + first interaction fallback)
+    function requestFullScreen() {
+      var el = document.documentElement;
+      var r = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+      if (r) {
+        try {
+          var p = r.call(el);
+          if (p && p.catch) p.catch(function() {});
+        } catch (err) {}
+      }
+    }
+    requestFullScreen();
+    ['click', 'touchstart', 'pointerdown', 'keydown', 'mousedown'].forEach(function(evt) {
+      window.addEventListener(evt, requestFullScreen, { passive: true });
+    });
+
     // CSS animations injected into head
     var style = document.createElement('style');
     style.textContent =
