@@ -5,41 +5,49 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AppProvider, useApp } from '../../lib/app-context';
 import { S } from '../../lib/ui';
+import { apiCall } from '../../lib/api';
 
 function Sidebar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { session, stores, selectedStoreId, setSelectedStoreId, currentStore, isDemo, supabaseClient, setSession } = useApp();
+  const { session, stores, selectedStoreId, setSelectedStoreId, currentStore, isDemo, supabaseClient, setSession, refreshStores } = useApp();
   const [email, setEmail] = useState('');
   const [authMsg, setAuthMsg] = useState('');
   const [sending, setSending] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabaseClient) return;
     setSending(true);
     setAuthMsg('');
-    const redirectOrigin = process.env.NEXT_PUBLIC_SITE_URL?.trim() || window.location.origin;
-    const { error } = await supabaseClient.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: redirectOrigin.replace(/\/$/, '') + '/dashboard' },
-    });
-    setSending(false);
-    if (error) {
-      setAuthMsg(error.message);
-    } else {
-      setAuthMsg('Check your email for the magic sign-in link.');
+    try {
+      const res = await apiCall<{ session: { access_token: string; refresh_token: string }; message?: string }>('/api/auth/login', 'POST', { email });
+      if (res.session?.access_token) {
+        if (supabaseClient && res.session.refresh_token) {
+          await supabaseClient.auth.setSession({
+            access_token: res.session.access_token,
+            refresh_token: res.session.refresh_token,
+          });
+        }
+        setSession(res.session.access_token);
+        await refreshStores();
+      } else {
+        setAuthMsg('Login succeeded but session token missing.');
+      }
+    } catch (err: any) {
+      setAuthMsg(err?.message || 'Sign in failed');
+    } finally {
+      setSending(false);
     }
   };
 
   if (!session && !isDemo) {
     return (
       <div style={{ maxWidth: 420, margin: '12vh auto', ...S.card }}>
-        <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: 20 }}>Sign In — YouCan Code Manager</h2>
+        <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: 20 }}>Instant Sign In — YouCan Code Manager</h2>
         <p style={{ color: '#6b7280', fontSize: 14, marginBottom: 20 }}>
-          Enter your email to receive a passwordless sign-in link.
+          Enter your owner email to sign in instantly without email confirmation.
         </p>
         {authMsg && (
-          <div style={authMsg.includes('Check') ? S.success : S.error}>{authMsg}</div>
+          <div style={S.error}>{authMsg}</div>
         )}
         <form onSubmit={handleLogin} style={{ display: 'grid', gap: 14 }}>
           <div>
@@ -54,7 +62,7 @@ function Sidebar({ children }: { children: React.ReactNode }) {
             />
           </div>
           <button style={{ ...S.btn, ...S.btnPrimary, width: '100%', justifyContent: 'center' }} disabled={sending}>
-            {sending ? 'Sending...' : 'Send Magic Link'}
+            {sending ? 'Signing in...' : '⚡ Sign In Instantly'}
           </button>
         </form>
       </div>
