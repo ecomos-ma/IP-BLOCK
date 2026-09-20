@@ -21,7 +21,7 @@ function Sidebar({ children }: { children: React.ReactNode }) {
     const redirectOrigin = process.env.NEXT_PUBLIC_SITE_URL?.trim() || window.location.origin;
     const { error } = await supabaseClient.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: redirectOrigin.replace(/\/$/, '') + '/dashboard', shouldCreateUser: false },
+      options: { emailRedirectTo: redirectOrigin.replace(/\/$/, '') + '/dashboard' },
     });
     setSending(false);
     if (error) {
