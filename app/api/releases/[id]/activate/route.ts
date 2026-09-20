@@ -1,5 +1,5 @@
 import { db, account, demoMode, json, writeAuditLog } from '../../../../../lib/db';
-import { demoActivateRelease, demoAppendAudit, demoReleases } from '../../../../../lib/demo';
+import { demoActivateRelease, demoAppendAudit } from '../../../../../lib/demo';
 import { ownedStore } from '../../../../../lib/ownership';
 
 export const runtime = 'nodejs';
@@ -7,7 +7,6 @@ export const runtime = 'nodejs';
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
   const user = await account(request);
-  if (!user) return json({ error: 'Sign in required' }, 401);
 
   if (demoMode) {
     const activated = demoActivateRelease(id);
@@ -27,7 +26,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const access = await ownedStore(request, release.store_id);
   if (access.error) return access.error;
 
-  // Deactivate all, activate selected
   await db().from('releases').update({ is_active: false }).eq('store_id', release.store_id);
   const { data: activated, error } = await db()
     .from('releases')

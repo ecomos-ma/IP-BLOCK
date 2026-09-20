@@ -1,4 +1,4 @@
-import { db, account, demoMode, json } from '../../../../lib/db';
+import { db, demoMode, json } from '../../../../lib/db';
 import { demoCustomerRule, demoDeleteCustomerRule, demoUpdateCustomerRule } from '../../../../lib/demo';
 import { ownedStore } from '../../../../lib/ownership';
 import { normalizeCustomerValue } from '../../../../lib/customer-rules';
@@ -6,9 +6,6 @@ import { normalizeCustomerValue } from '../../../../lib/customer-rules';
 export const runtime = 'nodejs';
 
 async function locateRule(request: Request, id: string) {
-  const user = await account(request);
-  if (!user) return { error: json({ error: 'Sign in required' }, 401) };
-
   if (demoMode) {
     const rule = demoCustomerRule(id);
     if (!rule) return { error: json({ error: 'Customer rule not found' }, 404) };
@@ -54,7 +51,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const { data, error } = await db()
     .from('customer_rules')
     .update(change)
-    .eq('id', id)
+    .eq('id', located.rule!.id)
     .select('*')
     .single();
 
@@ -70,6 +67,6 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     return json({ ok: demoDeleteCustomerRule(id) });
   }
 
-  const { error } = await db().from('customer_rules').delete().eq('id', id);
+  const { error } = await db().from('customer_rules').delete().eq('id', located.rule!.id);
   return error ? json({ error: 'Could not delete rule' }, 500) : json({ ok: true });
 }

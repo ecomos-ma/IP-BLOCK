@@ -5,9 +5,6 @@ import { ownedStore } from '../../../../lib/ownership';
 export const runtime = 'nodejs';
 
 async function locateDoc(request: Request, id: string) {
-  const user = await account(request);
-  if (!user) return { error: json({ error: 'Sign in required' }, 401) };
-
   if (demoMode) {
     const doc = demoCodeDoc(id);
     if (!doc) return { error: json({ error: 'Document not found' }, 404) };

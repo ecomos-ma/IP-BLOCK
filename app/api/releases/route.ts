@@ -19,13 +19,10 @@ export async function GET(request: Request) {
     .eq('store_id', storeId)
     .order('version_number', { ascending: false });
 
-  return error ? json({ error: 'Could not list releases' }, 500) : json({ releases: data });
+  return error ? json({ error: 'Could not list releases' }, 500) : json({ releases: data || [] });
 }
 
 export async function POST(request: Request) {
-  const user = await account(request);
-  if (!user) return json({ error: 'Sign in required' }, 401);
-
   let body;
   try { body = await request.json(); } catch { return json({ error: 'Invalid JSON' }, 400); }
 
@@ -34,6 +31,8 @@ export async function POST(request: Request) {
 
   const access = await ownedStore(request, storeId);
   if (access.error) return access.error;
+
+  const user = await account(request);
 
   let docs: CodeDocument[];
   if (demoMode) {
@@ -44,26 +43,21 @@ export async function POST(request: Request) {
     docs = (data || []) as CodeDocument[];
   }
 
-  // 1. Copy draft_content to published_content for all documents of this store
   const publishedDocs = docs.map(doc => ({
     ...doc,
     published_content: doc.draft_content,
   }));
 
   if (demoMode) {
-    // In demo mode update local state
     docs.forEach(doc => { doc.published_content = doc.draft_content; });
   } else {
-    // DB batch update draft -> published
     for (const doc of docs) {
       await db().from('code_documents').update({ published_content: doc.draft_content }).eq('id', doc.id);
     }
   }
 
-  // 2. Build assets
   const assets = buildAssets(publishedDocs);
 
-  // 3. Map hashes
   const assetHashMap = new Map<string, string>();
   const assetEntries: Array<{ content: string; type: 'css' | 'js' | 'html'; hash: string }> = [];
 
@@ -90,11 +84,10 @@ export async function POST(request: Request) {
     }
   }
 
-  // 4. Calculate next version number
   let nextVersion = 1;
   if (demoMode) {
     const existing = demoReleases(storeId);
-    nextVersion = existing.length > 0 ? Math.max(...existing.map(r => r.version_number)) + 1 : 1;
+    nextVersion = existing.length > 0 ? Math.max(...existing.map((r: { version_number: number }) => r.version_number)) + 1 : 1;
   } else {
     const { data } = await db()
       .from('releases')
@@ -106,7 +99,6 @@ export async function POST(request: Request) {
     if (data) nextVersion = data.version_number + 1;
   }
 
-  // 5. Build manifest
   const manifest = buildManifest(storeId, nextVersion, assets, assetHashMap);
 
   if (demoMode) {
@@ -128,7 +120,6 @@ export async function POST(request: Request) {
     return json({ release }, 201);
   }
 
-  // Production DB insert release & release_assets
   await db().from('releases').update({ is_active: false }).eq('store_id', storeId);
 
   const { data: release, error: relErr } = await db()
@@ -147,7 +138,6 @@ export async function POST(request: Request) {
 
   if (relErr) return json({ error: 'Could not create release record' }, 500);
 
-  // Insert assets
   for (const entry of assetEntries) {
     await db().from('release_assets').upsert({
       store_id: storeId,

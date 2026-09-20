@@ -25,13 +25,10 @@ export async function GET(request: Request) {
     .eq('store_id', storeId)
     .order('priority', { ascending: true });
 
-  return error ? json({ error: 'Could not list code documents' }, 500) : json({ documents: data });
+  return error ? json({ error: 'Could not list code documents' }, 500) : json({ documents: data || [] });
 }
 
 export async function POST(request: Request) {
-  const user = await account(request);
-  if (!user) return json({ error: 'Sign in required' }, 401);
-
   let body;
   try { body = await request.json(); } catch { return json({ error: 'Invalid JSON' }, 400); }
 

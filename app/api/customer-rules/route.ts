@@ -1,4 +1,4 @@
-import { db, account, demoMode, json } from '../../../lib/db';
+import { db, demoMode, json } from '../../../lib/db';
 import { demoCustomerRules, demoCreateCustomerRule } from '../../../lib/demo';
 import { ownedStore } from '../../../lib/ownership';
 import { normalizeCustomerValue } from '../../../lib/customer-rules';
@@ -21,13 +21,10 @@ export async function GET(request: Request) {
     .eq('store_id', storeId)
     .order('created_at', { ascending: false });
 
-  return error ? json({ error: 'Could not list customer rules' }, 500) : json({ rules: data });
+  return error ? json({ error: 'Could not list customer rules' }, 500) : json({ rules: data || [] });
 }
 
 export async function POST(request: Request) {
-  const user = await account(request);
-  if (!user) return json({ error: 'Sign in required' }, 401);
-
   let body;
   try { body = await request.json(); } catch { return json({ error: 'Invalid JSON' }, 400); }
 
