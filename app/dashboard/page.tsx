@@ -1,39 +1,156 @@
 'use client';
-import {useEffect,useMemo,useState} from 'react';
-import {createClient,type SupabaseClient} from '@supabase/supabase-js';
 
-type Store={id:string;hostname:string;status:string;license_expires_at:string|null;created_at:string};
-type Rule={id:string;ip:string;enabled:boolean;starts_at:string;expires_at:string|null;note:string;created_at:string};
-const input={padding:10,border:'1px solid #ccd5df',borderRadius:6,fontSize:15} as const;
-const button={...input,cursor:'pointer',background:'#17212b',color:'#fff'} as const;
-const demoMode=process.env.NODE_ENV!=='production'&&process.env.NEXT_PUBLIC_DEMO_MODE!=='false';
-function date(value:string|null){return value?new Date(value).toLocaleString():'Permanent'}
-function active(rule:Rule){return rule.enabled&&(!rule.expires_at||Date.parse(rule.expires_at)>Date.now())&&Date.parse(rule.starts_at)<=Date.now()}
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useApp } from '../../lib/app-context';
+import { S, fmtDate, fmtRelative } from '../../lib/ui';
+import { apiCall } from '../../lib/api';
+import type { AuditLog, IpRule, Release } from '../../lib/types';
 
-export default function Dashboard(){
- const client=useMemo<SupabaseClient|null>(()=>{const url=process.env.NEXT_PUBLIC_SUPABASE_URL,key=process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;return url&&key?createClient(url,key):null},[]);
- const [session,setSession]=useState<string|null>(null),[mode,setMode]=useState<'demo'|'production'|'setup'>(demoMode?'demo':'production'),[email,setEmail]=useState(''),[cooldown,setCooldown]=useState(0),[stores,setStores]=useState<Store[]>([]),[selected,setSelected]=useState(''),[hostname,setHostname]=useState(''),[rules,setRules]=useState<Rule[]>([]),[ip,setIp]=useState('196.118.93.179'),[duration,setDuration]=useState('24'),[enabled,setEnabled]=useState(true),[note,setNote]=useState('Example block'),[msg,setMsg]=useState('');
- const configured=Boolean(client);
- useEffect(()=>{if(demoMode){setSession('demo');return}fetch('/api/config').then(response=>response.json()).then(result=>setMode(result.mode)).catch(()=>setMode('setup'));if(!client)return;client.auth.getSession().then(({data})=>setSession(data.session?.access_token||null));const {data:listener}=client.auth.onAuthStateChange((_event,current)=>setSession(current?.access_token||null));return ()=>listener.subscription.unsubscribe()},[client]);
- async function call(path:string,method='GET',body?:unknown){
-  const headers:Record<string,string>={};
-  if(body)headers['Content-Type']='application/json';
-  if(!demoMode){const current=client&&await client.auth.getSession();if(!current?.data.session)throw Error('Please use the email sign-in link first');headers.Authorization='Bearer '+current.data.session.access_token}
-  const response=await fetch(path,{method,headers,body:body?JSON.stringify(body):undefined,cache:'no-store'});const result=await response.json();if(!response.ok)throw Error(result.error||'Request failed');return result;
- }
- async function refreshStores(){try{const data=await call('/api/stores');setStores(data.stores);setSelected(previous=>previous||data.stores[0]?.id||'')}catch(e){setMsg(String(e))}}
- async function refreshRules(id=selected){if(!id)return;try{const result=await call('/api/rules?storeId='+encodeURIComponent(id));setRules(result.rules)}catch(e){setMsg(String(e))}}
- useEffect(()=>{if(session)refreshStores();else{setStores([]);setRules([])}},[session]);
- useEffect(()=>{if(session&&selected)refreshRules(selected)},[session,selected]);
- useEffect(()=>{if(!cooldown)return;const timer=window.setInterval(()=>setCooldown(value=>Math.max(0,value-1)),1000);return ()=>window.clearInterval(timer)},[cooldown]);
- async function login(e:React.FormEvent){e.preventDefault();if(!client||cooldown)return;const {error}=await client.auth.signInWithOtp({email,options:{emailRedirectTo:window.location.origin+'/dashboard',shouldCreateUser:false}});if(error){setMsg(error.message.toLowerCase().includes('rate limit')?'Email rate limit reached. Wait before requesting another link, or configure SMTP in Supabase Auth.':error.message);return}setCooldown(60);setMsg('Check your email. The secure link will open the dashboard after verification.')}
- async function addStore(e:React.FormEvent){e.preventDefault();try{const result=await call('/api/stores','POST',{hostname});setHostname('');setMsg('Store created');await refreshStores();setSelected(result.store.id)}catch(e){setMsg(String(e))}}
- async function addRule(e:React.FormEvent){e.preventDefault();try{await call('/api/rules','POST',{storeId:selected,ip,enabled,durationHours:duration==='permanent'?null:Number(duration),note});setMsg('Rule saved');await refreshRules()}catch(e){setMsg(String(e))}}
- async function toggle(rule:Rule){try{await call('/api/rules/'+rule.id,'PATCH',{enabled:!rule.enabled});await refreshRules()}catch(e){setMsg(String(e))}}
- async function remove(rule:Rule){if(!window.confirm('Delete '+rule.ip+'?'))return;try{await call('/api/rules/'+rule.id,'DELETE');await refreshRules()}catch(e){setMsg(String(e))}}
- const base=process.env.NEXT_PUBLIC_SITE_URL||(typeof window==='undefined'?'http://localhost:3000':window.location.origin);
- const snippet=selected?`<style>html.kx-protection-wait body{visibility:hidden!important}html.kx-protection-denied body> :not(#kx-protection-curtain){display:none!important}</style>\n<script>document.documentElement.classList.add('kx-protection-wait');setTimeout(function(){document.documentElement.classList.remove('kx-protection-wait')},3500);<\/script>\n<script src="${base}/guard.js" data-store-id="${selected}"><\/script>`:'';
- if(mode==='setup'||(!demoMode&&!configured))return <main style={{maxWidth:700,margin:'12vh auto',padding:24}}><h1>Supabase setup required</h1><p>Production mode needs NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY. Add them to the deployment environment, then reload.</p><p>For immediate local use, run development mode with DEMO_MODE=true.</p></main>;
- if(mode==='production'&&!session)return <main style={{maxWidth:420,margin:'12vh auto',padding:24}}>{msg&&<p role="status" style={{background:'#eef4ff',padding:12}}>{msg}</p>}<form onSubmit={login} style={{display:'grid',gap:12}}><label>Email<input style={{...input,display:'block',width:'100%',boxSizing:'border-box'}} type="email" required value={email} onChange={e=>setEmail(e.target.value)}/></label><button style={button} disabled={cooldown>0}>{cooldown?`Try again in ${cooldown}s`:'Send secure sign-in link'}</button></form></main>;
- return <main style={{maxWidth:980,margin:'24px auto',padding:20,color:'#17212b'}}><header style={{display:'flex',justifyContent:'space-between',gap:16,alignItems:'start',flexWrap:'wrap'}}><div><h1 style={{marginBottom:8}}>IP Protection Dashboard</h1><p style={{color:'#65717f',marginTop:0}}>Server-managed rules and browser-side visual blocking.</p></div><span style={{padding:'7px 10px',borderRadius:5,background:mode==='demo'?'#fff0c2':'#dff6e7',fontWeight:700,fontSize:13}}>{mode==='demo'?'LOCAL DEMO MODE':'SUPABASE PRODUCTION'}</span></header>{msg&&<p role="status" style={{background:'#eef4ff',padding:12}}>{msg}</p>}<section style={{...input,background:'#fff',marginTop:24}}><h2>Stores</h2><form onSubmit={addStore} style={{display:'flex',gap:8,flexWrap:'wrap'}}><input style={{...input,flex:1,minWidth:220}} placeholder="shop.example.com" value={hostname} onChange={e=>setHostname(e.target.value)} required/><button style={button}>Add store</button></form><label style={{display:'block',marginTop:16}}>Selected store<select style={{...input,display:'block',width:'100%',marginTop:6}} value={selected} onChange={e=>setSelected(e.target.value)}><option value="">Select a store</option>{stores.map(store=><option key={store.id} value={store.id}>{store.hostname} - {store.status}</option>)}</select></label>{stores.find(store=>store.id===selected)&&<p>License: {date(stores.find(store=>store.id===selected)?.license_expires_at||null)}</p>}</section>{selected&&<><section style={{...input,background:'#fff',marginTop:20}}><h2>Add IP block</h2><form onSubmit={addRule} style={{display:'grid',gap:10}}><label>IP address<input style={{...input,display:'block',width:'100%',boxSizing:'border-box',marginTop:5}} required value={ip} onChange={e=>setIp(e.target.value)}/></label><label>Duration<select style={{...input,display:'block',marginTop:5}} value={duration} onChange={e=>setDuration(e.target.value)}><option value="1">1 hour</option><option value="24">24 hours</option><option value="168">7 days</option><option value="720">30 days</option><option value="permanent">Permanent</option></select></label><label><input type="checkbox" checked={enabled} onChange={e=>setEnabled(e.target.checked)}/> Enabled immediately</label><label>Note<input style={{...input,display:'block',width:'100%',boxSizing:'border-box',marginTop:5}} value={note} onChange={e=>setNote(e.target.value)} maxLength={250}/></label><button style={button}>Save IP rule</button></form></section><section style={{...input,background:'#fff',marginTop:20}}><h2>Rules</h2>{rules.length===0?<p>No rules yet.</p>:<div style={{display:'grid',gap:10}}>{rules.map(rule=><article key={rule.id} style={{border:'1px solid #dbe1e7',padding:12,borderRadius:6,display:'flex',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}><div><strong>{rule.ip}</strong><div>{active(rule)?'Blocking':'Inactive'} · {rule.enabled?'Enabled':'Disabled'}</div><small>Created {date(rule.created_at)} · Expires {date(rule.expires_at)}</small>{rule.note&&<div>{rule.note}</div>}</div><div style={{display:'flex',gap:8,alignItems:'start'}}><button style={{...button,background:rule.enabled?'#65717f':'#217346'}} onClick={()=>toggle(rule)}>{rule.enabled?'Disable':'Enable'}</button><button style={{...button,background:'#a12622'}} onClick={()=>remove(rule)}>Delete</button></div></article>)}</div>}</section><section style={{...input,background:'#fff',marginTop:20}}><h2>YouCan installation code</h2><p>Use this code at the beginning of Additional Header Code.</p><textarea readOnly value={snippet} style={{width:'100%',minHeight:130,boxSizing:'border-box',...input}}/><button style={{...button,marginTop:8}} onClick={()=>navigator.clipboard.writeText(snippet).then(()=>setMsg('Installation code copied'))}>Copy installation code</button><p style={{fontSize:13,color:'#65717f'}}>This is client-side visual blocking, not network-level enforcement.</p></section></>}{mode==='production'&&<button style={{...button,marginTop:20}} onClick={()=>client?.auth.signOut()}>Sign out</button>}</main>;
+export default function DashboardOverview() {
+  const { session, stores, currentStore, isDemo } = useApp();
+  const [activeIpCount, setActiveIpCount] = useState<number>(0);
+  const [releaseCount, setReleaseCount] = useState<number>(0);
+  const [latestRelease, setLatestRelease] = useState<Release | null>(null);
+  const [recentLogs, setRecentLogs] = useState<AuditLog[]>([]);
+
+  useEffect(() => {
+    if (!currentStore) return;
+
+    // Fetch store overview metrics
+    apiCall<{ rules: IpRule[] }>(`/api/rules?storeId=${currentStore.id}`, 'GET', undefined, session)
+      .then(res => setActiveIpCount(res.rules.filter(r => r.enabled).length))
+      .catch(() => {});
+
+    apiCall<{ releases: Release[] }>(`/api/releases?storeId=${currentStore.id}`, 'GET', undefined, session)
+      .then(res => {
+        setReleaseCount(res.releases.length);
+        setLatestRelease(res.releases.find(r => r.is_active) || res.releases[0] || null);
+      })
+      .catch(() => {});
+
+    apiCall<{ logs: AuditLog[] }>(`/api/logs?storeId=${currentStore.id}`, 'GET', undefined, session)
+      .then(res => setRecentLogs((res.logs || []).slice(0, 5)))
+      .catch(() => {});
+  }, [currentStore, session]);
+
+  if (!currentStore) {
+    return (
+      <div>
+        <h1 style={{ marginTop: 0, fontSize: 24, fontWeight: 700 }}>Welcome to YouCan Remote Code Manager</h1>
+        <p style={{ color: '#6b7280' }}>You don&apos;t have any stores registered yet.</p>
+        <Link href="/dashboard/stores/new" style={{ ...S.btn, ...S.btnPrimary, textDecoration: 'none' }}>
+          + Add Your First Store
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#0f172a' }}>
+            Store Overview — {currentStore.name || currentStore.hostname}
+          </h1>
+          <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: 14 }}>
+            Remote Code Management & Protection Control Center
+          </p>
+        </div>
+        <Link href={`/dashboard/${currentStore.id}/publishing`} style={{ ...S.btn, ...S.btnPrimary, textDecoration: 'none' }}>
+          🚀 Publishing & Releases
+        </Link>
+      </div>
+
+      {/* Domain Verification Notice */}
+      {!currentStore.verified_at && (
+        <div style={{ ...S.warning, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+          <div>
+            <strong>Store Ownership Unverified:</strong> Verify your domain to ensure custom assets are served with proper security context.
+          </div>
+          <Link href={`/dashboard/${currentStore.id}/installation`} style={{ ...S.btn, ...S.btnSecondary, textDecoration: 'none', fontSize: 13 }}>
+            Verify Domain →
+          </Link>
+        </div>
+      )}
+
+      {/* Metrics Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 28 }}>
+        <div style={S.card}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Active Store</div>
+          <div style={{ fontSize: 20, fontWeight: 700, margin: '8px 0 4px', color: '#0f172a' }}>{currentStore.hostname}</div>
+          <div style={{ fontSize: 12, color: currentStore.verified_at ? '#16a34a' : '#d97706' }}>
+            {currentStore.verified_at ? '✓ Domain Verified' : '⚠ Ownership Unverified'}
+          </div>
+        </div>
+
+        <div style={S.card}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Active Version</div>
+          <div style={{ fontSize: 20, fontWeight: 700, margin: '8px 0 4px', color: '#2563eb' }}>
+            {latestRelease ? `v${latestRelease.version_number}` : 'No Releases'}
+          </div>
+          <div style={{ fontSize: 12, color: '#64748b' }}>
+            {latestRelease ? `Published ${fmtRelative(latestRelease.published_at)}` : 'Draft code only'}
+          </div>
+        </div>
+
+        <div style={S.card}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Active IP Rules</div>
+          <div style={{ fontSize: 20, fontWeight: 700, margin: '8px 0 4px', color: '#0f172a' }}>{activeIpCount}</div>
+          <div style={{ fontSize: 12, color: '#64748b' }}>Client-side visual protection</div>
+        </div>
+
+        <div style={S.card}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Total Stores</div>
+          <div style={{ fontSize: 20, fontWeight: 700, margin: '8px 0 4px', color: '#0f172a' }}>{stores.length}</div>
+          <div style={{ fontSize: 12, color: '#64748b' }}>Multi-store account</div>
+        </div>
+      </div>
+
+      {/* Action Quick Links */}
+      <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 14 }}>Quick Actions</h2>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, marginBottom: 28 }}>
+        <Link href={`/dashboard/${currentStore.id}/header`} style={{ ...S.card, textDecoration: 'none', color: 'inherit' }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#2563eb', marginBottom: 4 }}>⚡ Header Code Editor</div>
+          <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>Manage critical CSS and early initialization scripts.</p>
+        </Link>
+
+        <Link href={`/dashboard/${currentStore.id}/footer`} style={{ ...S.card, textDecoration: 'none', color: 'inherit' }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#2563eb', marginBottom: 4 }}>🦶 Footer Code Editor</div>
+          <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>Manage DOM-ready scripts, product variant handlers.</p>
+        </Link>
+
+        <Link href={`/dashboard/${currentStore.id}/custom`} style={{ ...S.card, textDecoration: 'none', color: 'inherit' }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#2563eb', marginBottom: 4 }}>🧩 Custom Code Modules</div>
+          <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>WhatsApp widgets, phone validation, targeted tools.</p>
+        </Link>
+
+        <Link href={`/dashboard/${currentStore.id}/installation`} style={{ ...S.card, textDecoration: 'none', color: 'inherit' }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#2563eb', marginBottom: 4 }}>📋 Installation Snippet</div>
+          <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>Copy your permanent single bootstrap snippet for YouCan.</p>
+        </Link>
+      </div>
+
+      {/* Recent Activity */}
+      <div style={S.card}>
+        <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700 }}>Recent Audit Activity</h3>
+        {recentLogs.length === 0 ? (
+          <p style={{ color: '#94a3b8', fontSize: 14 }}>No activity recorded yet for this store.</p>
+        ) : (
+          <div style={{ display: 'grid', gap: 10 }}>
+            {recentLogs.map(log => (
+              <div key={log.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: 6, background: '#f8fafc', fontSize: 13 }}>
+                <div>
+                  <strong style={{ color: '#0f172a' }}>{log.action}</strong>
+                  <span style={{ color: '#64748b', marginLeft: 8 }}>{JSON.stringify(log.metadata)}</span>
+                </div>
+                <span style={{ color: '#94a3b8', fontSize: 12 }}>{fmtRelative(log.created_at)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
