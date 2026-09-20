@@ -102,10 +102,13 @@ function initialState(): DemoState {
 function read(): DemoState {
   try {
     const raw = JSON.parse(readFileSync(file, 'utf8')) as Partial<DemoState>;
-    // Merge with initial to fill in any missing new keys from upgrades
     const initial = initialState();
+    const stores = (raw.stores ?? initial.stores).map(s => ({
+      ...s,
+      verification_token: s.verification_token || randomUUID(),
+    }));
     return {
-      stores: raw.stores ?? initial.stores,
+      stores,
       ip_rules: raw.ip_rules ?? initial.ip_rules,
       code_documents: raw.code_documents ?? initial.code_documents,
       releases: raw.releases ?? initial.releases,
@@ -206,7 +209,6 @@ export function demoActiveRelease(storeId: string) {
 }
 export function demoCreateRelease(input: Omit<Release,'id'>): Release {
   const state = read();
-  // Deactivate existing active release for this store
   state.releases.forEach(r => { if (r.store_id === input.store_id) r.is_active = false; });
   const release: Release = {...input, id: randomUUID()};
   state.releases.push(release); write(state); return release;
@@ -254,7 +256,6 @@ export function demoAuditLogs(storeId: string) {
 export function demoAppendAudit(entry: Omit<AuditLog,'id'|'created_at'>) {
   const state = read();
   state.audit_logs.push({...entry, id: randomUUID(), created_at: new Date().toISOString()});
-  // Keep latest 500 entries only to avoid unbounded growth
   if (state.audit_logs.length > 500) state.audit_logs = state.audit_logs.slice(-500);
   write(state);
 }

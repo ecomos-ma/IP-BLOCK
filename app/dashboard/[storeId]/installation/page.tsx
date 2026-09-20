@@ -1,23 +1,43 @@
 'use client';
 
 import React, { useEffect, useState, use } from 'react';
-import { useApp } from '../../../../lib/app-context';
+import { useApp as useGlobalApp } from '../../../../lib/app-context';
 import { S } from '../../../../lib/ui';
 import { apiCall } from '../../../../lib/api';
 
 export default function InstallationPage({ params }: { params: Promise<{ storeId: string }> }) {
   const { storeId } = use(params);
-  const { session, currentStore, refreshStores } = useApp();
+  const { session, currentStore, refreshStores } = useGlobalApp();
   const [snippet, setSnippet] = useState<string>('');
+  const [hostUrl, setHostUrl] = useState<string>('');
+  const [customHost, setCustomHost] = useState<string>('');
+  const [isLocal, setIsLocal] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [verifying, setVerifying] = useState(false);
 
+  const fetchSnippet = async (override?: string) => {
+    setLoading(true);
+    try {
+      const q = override ? `?overrideHost=${encodeURIComponent(override)}` : '';
+      const res = await apiCall<{ snippet: string; hostUrl: string; isLocal: boolean }>(
+        `/api/stores/${storeId}/snippet${q}`,
+        'GET',
+        undefined,
+        session
+      );
+      setSnippet(res.snippet);
+      setHostUrl(res.hostUrl);
+      setIsLocal(res.isLocal);
+    } catch (err: unknown) {
+      setMsg({ text: (err as Error).message, type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    apiCall<{ snippet: string }>(`/api/stores/${storeId}/snippet`, 'GET', undefined, session)
-      .then(res => setSnippet(res.snippet))
-      .catch(err => setMsg({ text: err.message, type: 'error' }))
-      .finally(() => setLoading(false));
+    fetchSnippet();
   }, [storeId, session]);
 
   const handleCopy = () => {
@@ -41,8 +61,14 @@ export default function InstallationPage({ params }: { params: Promise<{ storeId
     }
   };
 
+  const handleApplyCustomHost = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customHost.trim()) return;
+    fetchSnippet(customHost.trim());
+  };
+
   const isVerified = currentStore?.verified_at;
-  const token = currentStore?.verification_token || 'your-token';
+  const token = currentStore?.verification_token || 'demo-token';
 
   return (
     <div>
@@ -99,6 +125,31 @@ export default function InstallationPage({ params }: { params: Promise<{ storeId
         <p style={{ color: '#64748b', fontSize: 14, marginBottom: 16 }}>
           Copy this single snippet and paste it ONCE at the top of <strong>YouCan Admin → Settings → Additional Header Code</strong>.
         </p>
+
+        {isLocal && (
+          <div style={{ ...S.warning, marginBottom: 16 }}>
+            ⚠️ <strong>Localhost Warning:</strong> Your snippet is currently pointing to <code>{hostUrl}</code>. Live HTTPS YouCan stores block <code>http://localhost</code> scripts due to Mixed Content security rules.
+            <br />
+            To test on your live YouCan store, use your deployed Vercel HTTPS URL (e.g. <code>https://ip-block.vercel.app</code>) or enter your HTTPS tunnel host below.
+          </div>
+        )}
+
+        {/* Custom Host Override Form */}
+        <form onSubmit={handleApplyCustomHost} style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>
+            SaaS HTTPS Host:
+          </label>
+          <input
+            type="text"
+            placeholder="e.g. https://your-project.vercel.app"
+            value={customHost}
+            onChange={e => setCustomHost(e.target.value)}
+            style={{ ...S.input, flex: 1 }}
+          />
+          <button style={{ ...S.btn, ...S.btnSecondary, whiteSpace: 'nowrap' }}>
+            Update Snippet Host
+          </button>
+        </form>
 
         {loading ? (
           <div style={{ padding: 20, textAlign: 'center', color: '#64748b' }}>Generating Snippet...</div>

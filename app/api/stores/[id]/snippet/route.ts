@@ -8,14 +8,17 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const access = await ownedStore(request, id);
   if (access.error) return access.error;
 
+  const url = new URL(request.url);
+  const overrideHost = url.searchParams.get('overrideHost')?.trim();
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  const reqUrl = new URL(request.url);
-  const hostUrl = siteUrl || reqUrl.origin;
+  let hostUrl = overrideHost || siteUrl || url.origin;
 
-  if (!siteUrl && (hostUrl.includes('localhost') || hostUrl.includes('127.0.0.1'))) {
-    // Return warnings if localhost is detected for production snippets
-    // But still provide snippet with placeholder warning comment
+  if (hostUrl && !/^https?:\/\//i.test(hostUrl)) {
+    hostUrl = 'https://' + hostUrl;
   }
+  hostUrl = hostUrl.replace(/\/$/, '');
+
+  const isLocal = hostUrl.includes('localhost') || hostUrl.includes('127.0.0.1');
 
   const snippet = `<!-- YouCan Remote Code Manager Bootstrap — Install ONCE in Additional Header Code -->
 <style>
@@ -37,5 +40,6 @@ html.ycm-protection-denied body > :not(#ycm-protection-curtain) { display: none 
     hostname: access.store.hostname,
     snippet,
     hostUrl,
+    isLocal,
   });
 }

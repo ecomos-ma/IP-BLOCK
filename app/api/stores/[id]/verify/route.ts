@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { db, account, demoMode, json } from '../../../../../lib/db';
 import { demoStore, demoUpdateStore } from '../../../../../lib/demo';
 import { ownedStore } from '../../../../../lib/ownership';
@@ -23,11 +24,21 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const access = await ownedStore(request, id);
   if (access.error) return access.error;
 
+  let token = access.store.verification_token;
+  if (!token) {
+    token = randomUUID();
+    if (demoMode) {
+      demoUpdateStore(id, { verification_token: token });
+    } else {
+      await db().from('stores').update({ verification_token: token }).eq('id', id);
+    }
+  }
+
   return json({
     storeId: access.store.id,
     hostname: access.store.hostname,
     verified_at: access.store.verified_at || null,
-    verification_token: access.store.verification_token || null,
+    verification_token: token,
   });
 }
 
@@ -37,9 +48,15 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (access.error) return access.error;
 
   const store = access.store;
-  const token = store.verification_token;
-
-  if (!token) return json({ error: 'No verification token set for store' }, 400);
+  let token = store.verification_token;
+  if (!token) {
+    token = randomUUID();
+    if (demoMode) {
+      demoUpdateStore(id, { verification_token: token });
+    } else {
+      await db().from('stores').update({ verification_token: token }).eq('id', id);
+    }
+  }
 
   if (demoMode) {
     const verified_at = new Date().toISOString();
@@ -67,7 +84,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const html = await res.text();
     const headerToken = res.headers.get('x-youcan-site-verification');
 
-    const metaMatch = html.includes(`name="youcan-site-verification"`)|| html.includes(token);
+    const metaMatch = html.includes(`name="youcan-site-verification"`) || html.includes(token);
     const verified = Boolean((headerToken && headerToken.includes(token)) || metaMatch);
 
     if (!verified) {
