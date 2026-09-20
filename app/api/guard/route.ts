@@ -15,7 +15,7 @@ export async function GET(request:Request){
  const origin=request.headers.get('origin');
  if(!origin)return allow();
  let host:string|null=null;try{host=validHost(new URL(origin).hostname)}catch{return allow()}
- const store=demoMode?demoStore(storeId):((await db().from('stores').select('hostname,status,license_expires_at').eq('id',storeId).maybeSingle()).data);
+ const store=demoMode?demoStore(storeId):((await db().from('stores').select('hostname,status,license_expires_at,block_message,block_image_url').eq('id',storeId).maybeSingle()).data);
  const error=demoMode?null:undefined;
  if(error||!store||!host||host!==store.hostname||store.status!=='active'||(store.license_expires_at&&Date.parse(store.license_expires_at)<=Date.now()))return allow();
  // Production must use a proxy-controlled header. Demo accepts a local test header only.
@@ -25,6 +25,6 @@ export async function GET(request:Request){
  const rulesError=demoMode?null:undefined;
  if(rulesError)return allow();
  const block=(rules||[]).some(rule=>blockedByRule(rule,ip));
- return cors({blocked:block,decision:block?'block':'allow'},200,origin);
+ return cors({blocked:block,decision:block?'block':'allow',message:(store as any)?.block_message||null,image_url:(store as any)?.block_image_url||null,ip:ip},200,origin);
  }catch{return allow()}
 }

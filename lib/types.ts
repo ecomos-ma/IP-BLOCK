@@ -12,6 +12,8 @@ export interface Store {
   license_expires_at: string | null;
   verification_token: string | null;
   verified_at: string | null;
+  block_message?: string | null;
+  block_image_url?: string | null;
   created_at: string;
   updated_at?: string;
 }

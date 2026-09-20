@@ -82,7 +82,7 @@
     ROOT.classList.remove('ycm-protection-wait');
   }
 
-  function blockStore() {
+  function blockStore(data) {
     if (ipDecided) return;
     ipDecided = true;
     if (ipTimer) clearTimeout(ipTimer);
@@ -90,13 +90,54 @@
     ROOT.classList.add('ycm-protection-denied');
     function showCurtain() {
       if (!document.body) return;
+      if (document.getElementById('ycm-protection-curtain')) return;
+
       var curtain = document.createElement('div');
       curtain.id = 'ycm-protection-curtain';
       curtain.style.cssText =
         'position:fixed!important;inset:0!important;z-index:2147483647!important;' +
-        'background:#fff!important;display:flex!important;align-items:center!important;' +
-        'justify-content:center!important;font:16px Arial,sans-serif!important;color:#333!important';
-      curtain.textContent = 'Access Denied';
+        'background:#0f172a!important;display:flex!important;align-items:center!important;' +
+        'justify-content:center!important;font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif!important;' +
+        'color:#f8fafc!important;padding:24px!important;box-sizing:border-box!important;text-align:center!important;';
+
+      var card = document.createElement('div');
+      card.style.cssText =
+        'max-width:520px!important;width:100%!important;background:#1e293b!important;' +
+        'border:1px solid #334155!important;border-radius:16px!important;padding:36px 28px!important;' +
+        'box-shadow:0 25px 50px -12px rgba(0,0,0,0.5)!important;display:flex!important;flex-direction:column!important;' +
+        'align-items:center!important;gap:16px!important;';
+
+      var imgUrl = data && data.image_url ? data.image_url : null;
+      if (imgUrl) {
+        var img = document.createElement('img');
+        img.src = imgUrl;
+        img.style.cssText = 'max-height:160px!important;max-width:100%!important;border-radius:12px!important;object-fit:contain!important;margin-bottom:8px!important;';
+        card.appendChild(img);
+      } else {
+        var icon = document.createElement('div');
+        icon.style.cssText = 'font-size:48px!important;margin-bottom:4px!important;';
+        icon.textContent = '🚫';
+        card.appendChild(icon);
+      }
+
+      var title = document.createElement('h2');
+      title.style.cssText = 'margin:0!important;font-size:22px!important;font-weight:700!important;color:#f8fafc!important;letter-spacing:-0.4px!important;';
+      title.textContent = 'Access Restricted';
+      card.appendChild(title);
+
+      var msg = document.createElement('p');
+      msg.style.cssText = 'margin:0!important;font-size:15px!important;line-height:1.6!important;color:#94a3b8!important;white-space:pre-wrap!important;';
+      msg.textContent = (data && data.message) ? data.message : 'Access to this store is restricted from your IP address.';
+      card.appendChild(msg);
+
+      if (data && data.ip) {
+        var ipBadge = document.createElement('div');
+        ipBadge.style.cssText = 'font-size:12px!important;color:#64748b!important;background:#0f172a!important;padding:4px 12px!important;border-radius:20px!important;margin-top:8px!important;font-family:monospace!important;';
+        ipBadge.textContent = 'Your IP: ' + data.ip;
+        card.appendChild(ipBadge);
+      }
+
+      curtain.appendChild(card);
       document.body.appendChild(curtain);
     }
     if (document.body) showCurtain();
@@ -113,7 +154,7 @@
     if (!r.ok) throw new Error('guard ' + r.status);
     return r.json();
   }).then(function (data) {
-    if (data.blocked === true || data.decision === 'block') blockStore();
+    if (data.blocked === true || data.decision === 'block') blockStore(data);
     else revealStore();
   }).catch(function (err) {
     console.warn('[YCM] IP guard unavailable, failing open.', err && err.message);
@@ -232,24 +273,84 @@
   // ─── Script loaders ───────────────────────────────────────────────────────────
   var scriptRegistry = {};
 
+  function executeJsOrHtml(code) {
+    if (!code || !code.trim()) return;
+    var trimmed = code.trim();
+
+    // Check if payload contains HTML elements or tags
+    if (/<[a-z][\s\S]*>/i.test(trimmed)) {
+      var container = document.createElement('div');
+      container.innerHTML = trimmed;
+
+      // 1. Process style tags
+      var styles = container.querySelectorAll('style');
+      for (var i = 0; i < styles.length; i++) {
+        var st = document.createElement('style');
+        st.textContent = styles[i].textContent;
+        HEAD.appendChild(st);
+      }
+
+      // 2. Process link stylesheets
+      var links = container.querySelectorAll('link[rel="stylesheet"]');
+      for (var l = 0; l < links.length; l++) {
+        var lk = document.createElement('link');
+        lk.rel = 'stylesheet';
+        lk.href = links[l].href || links[l].getAttribute('href');
+        HEAD.appendChild(lk);
+      }
+
+      // 3. Process script tags
+      var scripts = container.querySelectorAll('script');
+      for (var s = 0; s < scripts.length; s++) {
+        var sc = document.createElement('script');
+        var src = scripts[s].getAttribute('src');
+        if (src) {
+          sc.src = src;
+          if (scripts[s].async) sc.async = true;
+          if (scripts[s].defer) sc.defer = true;
+          (document.body || HEAD).appendChild(sc);
+        } else {
+          var inlineText = scripts[s].textContent;
+          if (inlineText && inlineText.trim()) {
+            try {
+              (new Function(inlineText))();
+            } catch (e) {
+              var el = document.createElement('script');
+              el.textContent = inlineText;
+              (document.body || HEAD).appendChild(el);
+            }
+          }
+        }
+      }
+
+      // 4. Process non-script non-style DOM nodes (e.g., custom HTML widgets)
+      var children = Array.prototype.slice.call(container.childNodes);
+      for (var c = 0; c < children.length; c++) {
+        var node = children[c];
+        if (node.nodeName !== 'SCRIPT' && node.nodeName !== 'STYLE' && node.nodeName !== 'LINK') {
+          (document.body || HEAD).appendChild(node.cloneNode(true));
+        }
+      }
+    } else {
+      // Pure JS payload
+      try {
+        (new Function(trimmed))();
+      } catch (e) {
+        console.error('[YCM] JS Execution Error:', e);
+      }
+    }
+  }
+
   function loadScript(url, key, callback) {
     if (scriptRegistry[key]) { callback && callback(); return; }
     scriptRegistry[key] = true;
-    // Fetch the script text and execute with Function() to ensure proper execution
-    // (unlike innerHTML-injected scripts which may not execute in all browsers)
     fetch(url, { mode: 'cors', cache: 'force-cache', credentials: 'omit' })
       .then(function (r) {
         if (!r.ok) throw new Error('script ' + r.status);
         return r.text();
       })
       .then(function (code) {
-        try {
-          // Execute in global scope — equivalent to a <script> tag at this position
-          // eslint-disable-next-line no-new-func
-          (new Function(code))();
-        } catch (e) {
-          console.error('[YCM] Script execution error (' + key + '):', e);
-        }
+        executeJsOrHtml(code);
         callback && callback();
       })
       .catch(function (err) {

@@ -34,6 +34,8 @@ function initialState(): DemoState {
       license_expires_at: null,
       verification_token: 'demo-verify-token',
       verified_at: now,
+      block_message: 'Access to this store is restricted from your IP address. Please contact support if you believe this is an error.',
+      block_image_url: '',
       created_at: now,
     }],
     ip_rules: [{

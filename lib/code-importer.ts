@@ -55,10 +55,12 @@ export function importYoucanRawCode(rawHtml: string): ImportResult {
       } else if (/^\s*(?:var|let|const|function|window|document|\$|console|if|for|while|\()/i.test(strippedHtml)) {
         jsBlocks.push(strippedHtml);
       } else {
-        warnings.push('Contains unhandled HTML markup outside <style> or <script> tags.');
+        const safeHtml = JSON.stringify(strippedHtml);
+        jsBlocks.push(`(function(){ var div = document.createElement('div'); div.innerHTML = ${safeHtml}; while(div.firstChild){ (document.body || document.head).appendChild(div.firstChild); } })();`);
       }
     } else {
-      warnings.push('Extracted CSS and JavaScript blocks. Residual HTML elements were ignored for clean execution.');
+      const safeHtml = JSON.stringify(strippedHtml);
+      jsBlocks.push(`(function(){ var div = document.createElement('div'); div.innerHTML = ${safeHtml}; while(div.firstChild){ (document.body || document.head).appendChild(div.firstChild); } })();`);
     }
   }
 

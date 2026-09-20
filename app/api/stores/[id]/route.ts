@@ -16,6 +16,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if ('name' in body) change.name = String(body.name || '').slice(0, 120);
   if ('description' in body) change.description = String(body.description || '').slice(0, 500);
   if ('status' in body && (body.status === 'active' || body.status === 'suspended')) change.status = body.status;
+  if ('block_message' in body) change.block_message = String(body.block_message || '').slice(0, 1000);
+  if ('block_image_url' in body) change.block_image_url = String(body.block_image_url || '').slice(0, 2000);
 
   if (Object.keys(change).length === 0) return json({ error: 'No changes provided' }, 400);
 
@@ -28,7 +30,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     .from('stores')
     .update(change)
     .eq('id', id)
-    .select('id,hostname,name,description,status,license_expires_at,verified_at,verification_token')
+    .select('id,hostname,name,description,status,license_expires_at,verified_at,verification_token,block_message,block_image_url')
     .single();
 
   return error ? json({ error: 'Could not update store' }, 500) : json({ store: data });

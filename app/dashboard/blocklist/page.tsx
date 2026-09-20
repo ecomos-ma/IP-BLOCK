@@ -6,7 +6,7 @@ import { S, fmtDate } from '../../../lib/ui';
 import { apiCall } from '../../../lib/api';
 import type { IpRule, CustomerRule, CustomerRuleType } from '../../../lib/types';
 
-type BlocklistTab = 'ip' | 'customer';
+type BlocklistTab = 'ip' | 'customer' | 'screen';
 
 export default function BlocklistPage() {
   const { currentStore, session } = useApp();
@@ -25,6 +25,40 @@ export default function BlocklistPage() {
   const [custType, setCustType] = useState<CustomerRuleType>('phone');
   const [custValue, setCustValue] = useState('');
   const [custReason, setCustReason] = useState('');
+
+  // Block Screen customization state
+  const [blockMessage, setBlockMessage] = useState(
+    currentStore?.block_message || 'Access to this store is restricted from your IP address. Please contact support if you believe this is an error.'
+  );
+  const [blockImageUrl, setBlockImageUrl] = useState(currentStore?.block_image_url || '');
+  const [savingScreen, setSavingScreen] = useState(false);
+
+  useEffect(() => {
+    if (currentStore) {
+      setBlockMessage(currentStore.block_message || 'Access to this store is restricted from your IP address. Please contact support if you believe this is an error.');
+      setBlockImageUrl(currentStore.block_image_url || '');
+    }
+  }, [currentStore?.id]);
+
+  const handleSaveScreen = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentStore) return;
+    setSavingScreen(true);
+    setMsg(null);
+    try {
+      const res = await apiCall<{ store: any }>(`/api/stores/${currentStore.id}`, 'PATCH', {
+        block_message: blockMessage,
+        block_image_url: blockImageUrl,
+      }, session);
+      if (res.store) {
+        setMsg({ text: 'Block screen customizations saved and applied to storefront!', type: 'success' });
+      }
+    } catch (err: unknown) {
+      setMsg({ text: (err as Error).message, type: 'error' });
+    } finally {
+      setSavingScreen(false);
+    }
+  };
 
   const fetchRules = async () => {
     if (!currentStore) return;
@@ -182,6 +216,22 @@ export default function BlocklistPage() {
           }}
         >
           👤 Customer Information ({custRules.length})
+        </button>
+
+        <button
+          onClick={() => setTab('screen')}
+          style={{
+            padding: '12px 24px',
+            fontSize: 15,
+            fontWeight: 700,
+            cursor: 'pointer',
+            background: 'none',
+            border: 'none',
+            color: tab === 'screen' ? '#38bdf8' : '#94a3b8',
+            borderBottom: tab === 'screen' ? '3px solid #38bdf8' : '3px solid transparent',
+          }}
+        >
+          🎨 Block Screen Customizer
         </button>
       </div>
 
@@ -397,6 +447,117 @@ export default function BlocklistPage() {
                 </div>
               ))
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Tab 3: Block Screen Customizer */}
+      {tab === 'screen' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+          {/* Settings Form */}
+          <form onSubmit={handleSaveScreen} style={{ ...S.card, background: '#0f172a', borderColor: '#1e293b', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 18, color: '#f8fafc', fontWeight: 800 }}>🎨 Block Screen Customization</h3>
+              <p style={{ margin: '4px 0 0', fontSize: 13, color: '#94a3b8' }}>
+                Customize the exact message and photo/logo displayed to visitors when their IP is blocked on <strong>{currentStore.name || currentStore.hostname}</strong>.
+              </p>
+            </div>
+
+            <div>
+              <label style={{ ...S.label, color: '#cbd5e1' }}>Custom Block Message *</label>
+              <textarea
+                rows={4}
+                required
+                value={blockMessage}
+                onChange={e => setBlockMessage(e.target.value)}
+                placeholder="Enter custom message shown to blocked visitors..."
+                style={{
+                  ...S.input,
+                  fontFamily: 'inherit',
+                  resize: 'vertical',
+                  lineHeight: 1.5,
+                }}
+              />
+              <span style={{ fontSize: 11, color: '#64748b', marginTop: 4, display: 'block' }}>
+                Supports multiline text and Arabic UTF-8 characters.
+              </span>
+            </div>
+
+            <div>
+              <label style={{ ...S.label, color: '#cbd5e1' }}>Custom Image / Photo URL (Optional)</label>
+              <input
+                type="url"
+                value={blockImageUrl}
+                onChange={e => setBlockImageUrl(e.target.value)}
+                placeholder="https://example.com/logo.png or banner URL"
+                style={S.input}
+              />
+              <span style={{ fontSize: 11, color: '#64748b', marginTop: 4, display: 'block' }}>
+                Optional brand logo or restriction banner image.
+              </span>
+            </div>
+
+            <div style={{ marginTop: 8 }}>
+              <button
+                type="submit"
+                disabled={savingScreen}
+                style={{ ...S.btn, ...S.btnPrimary, width: '100%', padding: '12px 20px', fontSize: 15 }}
+              >
+                {savingScreen ? 'Saving Changes...' : '💾 Save Block Screen Settings'}
+              </button>
+            </div>
+          </form>
+
+          {/* Live Storefront Preview */}
+          <div style={{ ...S.card, background: '#090d16', borderColor: '#1e293b', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid #1e293b', paddingBottom: 12 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                👁️ Live Storefront Block Screen Preview
+              </span>
+              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#1e293b', color: '#94a3b8' }}>
+                Real-Time View
+              </span>
+            </div>
+
+            <div
+              style={{
+                width: '100%',
+                background: '#0f172a',
+                border: '1px solid #334155',
+                borderRadius: 16,
+                padding: '32px 24px',
+                boxSizing: 'border-box',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+                gap: 16,
+                boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)',
+              }}
+            >
+              {blockImageUrl ? (
+                <img
+                  src={blockImageUrl}
+                  alt="Block screen preview"
+                  onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                  style={{ maxHeight: 120, maxWidth: '100%', borderRadius: 8, objectFit: 'contain' }}
+                />
+              ) : (
+                <div style={{ fontSize: 44 }}>🚫</div>
+              )}
+
+              <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#f8fafc', letterSpacing: -0.4 }}>
+                Access Restricted
+              </h3>
+
+              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: '#94a3b8', whiteSpace: 'pre-wrap' }}>
+                {blockMessage || 'Access to this store is restricted from your IP address.'}
+              </p>
+
+              <div style={{ fontSize: 11, color: '#64748b', background: '#0f172a', padding: '4px 12px', borderRadius: 20, fontFamily: 'monospace' }}>
+                Your IP: 196.118.93.179
+              </div>
+            </div>
           </div>
         </div>
       )}
